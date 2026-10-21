@@ -6,9 +6,9 @@
 <title>Ordenado</title>
 <meta name="theme-color" content="#0F1115">
 <meta name="description" content="Tickets para SiRADIG, agenda, vencimientos y fechas importantes.">
-<link rel="manifest" href="manifest.json">
-<link rel="icon" href="icon-192.png">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="/manifest.webmanifest?v=2">
+<link rel="icon" href="/icon-192.png?v=2">
+<link rel="apple-touch-icon" href="/icon-192.png?v=2">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
 <style>
 /* Layout: one-screen phone app — scrolling view above a fixed bottom nav; forms open as bottom sheets. Deliberately single dark theme. */
@@ -90,6 +90,7 @@ nav.bar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--nav);
 .cal button{height:44px;border-radius:14px;border:0;background:transparent;color:var(--fg);font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0}
 .cal button i{width:5px;height:5px;border-radius:99px;background:transparent}
 .cal button.dot i{background:var(--blue)}
+.cal button.dotv i{background:var(--violet)}
 .cal button.past{color:#6E747D}
 .cal button.today{box-shadow:inset 0 0 0 1.5px var(--blue)}
 .cal button.sel{background:var(--blue);color:var(--bg)}
@@ -215,8 +216,20 @@ async function safe(fn,ok){try{await fn();if(ok)toast(ok);return true}catch(e){t
 const pendVenc=()=>S.venc.filter(v=>!v.pagado).sort((a,b)=>a.fecha<b.fecha?-1:1);
 function nextFecha(f){const t=today0();let d=new Date(t.getFullYear(),f.mes-1,f.dia);if(d<t)d=new Date(t.getFullYear()+1,f.mes-1,f.dia);return d}
 const fechasOrd=()=>S.fechas.map(f=>{const d=nextFecha(f);return Object.assign({},f,{prox:iso(d),faltan:Math.round((d-today0())/86400000)})}).sort((a,b)=>a.faltan-b.faltan);
-function eventosFuturos(){const t=todayISO();const hm=pad(new Date().getHours())+':'+pad(new Date().getMinutes());
-  return S.eventos.filter(e=>e.fecha>t||(e.fecha===t&&(!e.hora||e.hora>=hm))).sort((a,b)=>(a.fecha+(a.hora||'00:00'))<(b.fecha+(b.hora||'00:00'))?-1:1)}
+const REPITE=[['NO','No se repite'],['DAILY','Todos los días'],['WEEKLY','Todas las semanas'],['MONTHLY','Todos los meses'],['YEARLY','Todos los años']];
+const repLabel=r=>(REPITE.find(x=>x[0]===r)||REPITE[0])[1];
+function occursOn(e,s){
+  if(!e.fecha||s<e.fecha)return false;const r=e.repite||'NO';if(r==='NO')return s===e.fecha;if(r==='DAILY')return true;
+  const a=parseISO(e.fecha),b=parseISO(s);
+  if(r==='WEEKLY')return a.getDay()===b.getDay();
+  const last=new Date(b.getFullYear(),b.getMonth()+1,0).getDate();const dd=Math.min(a.getDate(),last);
+  if(r==='MONTHLY')return b.getDate()===dd;
+  if(r==='YEARLY')return a.getMonth()===b.getMonth()&&b.getDate()===dd;return false}
+const fechaOn=(f,s)=>{const b=parseISO(s);return b.getMonth()+1===Number(f.mes)&&b.getDate()===Number(f.dia)};
+function eventosFuturos(){const t=todayISO();const hm=pad(new Date().getHours())+':'+pad(new Date().getMinutes());const out=[];
+  S.eventos.forEach(e=>{let d=parseISO(e.fecha>t?e.fecha:t);
+    for(let i=0;i<400;i++){const s=iso(d);if(occursOn(e,s)&&(s>t||!e.hora||e.hora>=hm)){out.push(Object.assign({},e,{fecha:s}));break}if((e.repite||'NO')==='NO'&&s>=e.fecha)break;d.setDate(d.getDate()+1)}});
+  return out.sort((a,b)=>(a.fecha+(a.hora||'00:00'))<(b.fecha+(b.hora||'00:00'))?-1:1)}
 const tkDelMes=m=>S.tickets.filter(t=>(t.fecha||'').slice(0,7)===m);
 
 function gcal(o){
@@ -233,6 +246,7 @@ function vInicio(){
   const h=new Date().getHours();const saludo=h<12?'Buen día':h<20?'Buenas tardes':'Buenas noches';
   let out='<header class="between"><div class="col"><span class="muted" style="font-size:13px;font-weight:600">'+esc(longDate(todayISO()))+'</span><h1>'+saludo+', Joaquín</h1></div><button class="ico" data-act="backup" aria-label="Respaldo de datos" style="border:0;background:var(--surface2);color:var(--lime);font-weight:800;font-size:17px">J</button></header>';
   if(!S.ready)return out+'<div class="spin" role="status" aria-label="Cargando tus datos"></div>';
+  if(installEvt&&!isStandalone())out+='<button class="btn btn-lime" data-act="install" style="min-height:56px;font-size:16px">Instalar Ordenado en el celu</button>';
   const pv=pendVenc();const urg=pv.filter(v=>daysUntil(v.fecha)<=3);
   if(urg[0]){const u=urg[0];const n=daysUntil(u.fecha);
     out+='<section class="urgent" aria-label="Urgente"><div class="ico" aria-hidden="true" style="background:var(--orange);color:#1E140B">'+ICON.warn+'</div><div class="col" style="flex:1"><span class="eyebrow" style="font-size:11px;color:var(--orange)">'+esc(n<0?'Vencido':n===0?'Vence hoy':'Vence '+cuando(n).toLowerCase())+'</span><span style="font-weight:800;font-size:16px" class="ellip">'+esc(u.titulo)+(u.monto?' · '+money(u.monto):'')+'</span></div><button class="btn btn-sm" style="background:var(--orange);color:var(--ink)" data-act="pagar" data-id="'+u.id+'">Ya pagué</button></section>';}
@@ -281,17 +295,19 @@ function vTickets(){
 
 function vAgenda(){
   const y=S.calY,m=S.calM;const first=new Date(y,m,1);const off=(first.getDay()+6)%7;const nd=new Date(y,m+1,0).getDate();
-  const t=todayISO();const con={};S.eventos.forEach(e=>{con[e.fecha]=1});
+  const t=todayISO();const con={};for(let d=1;d<=nd;d++){const s=y+'-'+pad(m+1)+'-'+pad(d);if(S.eventos.some(e=>occursOn(e,s)))con[s]=1;if(S.fechas.some(f=>fechaOn(f,s)))con[s]=con[s]?3:2}
   let cells='';['L','M','M','J','V','S','D'].forEach(d=>cells+='<span class="dow" aria-hidden="true">'+d+'</span>');
   for(let i=0;i<off;i++)cells+='<span></span>';
-  for(let d=1;d<=nd;d++){const s=y+'-'+pad(m+1)+'-'+pad(d);const cl=[con[s]?'dot':'',s<t?'past':'',s===t?'today':'',s===S.selDay?'sel':''].join(' ');
+  for(let d=1;d<=nd;d++){const s=y+'-'+pad(m+1)+'-'+pad(d);const cl=[con[s]===2?'dot dotv':con[s]?'dot':'',s<t?'past':'',s===t?'today':'',s===S.selDay?'sel':''].join(' ');
     cells+='<button class="'+cl+'" data-act="day" data-d="'+s+'" aria-label="'+d+' de '+MESES[m]+(con[s]?', con eventos':'')+'" aria-pressed="'+(s===S.selDay)+'"><span>'+d+'</span><i></i></button>'}
-  const evs=S.eventos.filter(e=>e.fecha===S.selDay).sort((a,b)=>(a.hora||'')<(b.hora||'')?-1:1);
+  const evs=S.eventos.filter(e=>occursOn(e,S.selDay)).sort((a,b)=>(a.hora||'')<(b.hora||'')?-1:1);
+  const fds=S.fechas.filter(f=>fechaOn(f,S.selDay));
   const n=daysUntil(S.selDay);
   let out='<header class="between"><div class="col"><span class="muted" style="font-size:13px;font-weight:600">Agenda</span><h1>'+cap(MESES[m])+' '+y+'</h1></div><div class="row" style="gap:8px"><button class="iconbtn" data-act="calmes" data-d="-1" aria-label="Mes anterior">'+ICON.back+'</button><button class="iconbtn" data-act="calmes" data-d="1" aria-label="Mes siguiente">'+ICON.next+'</button></div></header>';
   out+='<section class="card" style="border-radius:26px;padding:14px 10px"><div class="cal">'+cells+'</div></section>';
   out+='<section class="list"><h2>'+(n===0?'Hoy · ':n===1?'Mañana · ':'')+esc(longDate(S.selDay))+'</h2>';
-  out+=evs.length?evs.map(e=>'<button class="item" style="border:0;text-align:left;width:100%" data-act="evento" data-id="'+e.id+'"><span style="width:4px;align-self:stretch;border-radius:4px;background:var(--blue)" aria-hidden="true"></span><span class="col" style="flex:1"><span class="num" style="font-size:13px;font-weight:800;color:var(--blue)">'+esc(e.hora||'Todo el día')+'</span><span style="font-weight:700">'+esc(e.titulo)+'</span>'+(e.nota?'<span class="muted" style="font-size:12px">'+esc(e.nota)+'</span>':'')+'</span></button>').join(''):'<div class="empty">Día libre. Tocá + para anotar algo.</div>';
+  out+=fds.map(f=>'<button class="item" style="border:0;text-align:left;width:100%" data-act="fecha" data-id="'+f.id+'"><span style="width:4px;align-self:stretch;border-radius:4px;background:var(--violet)" aria-hidden="true"></span><span class="col" style="flex:1"><span style="font-size:13px;font-weight:800;color:var(--violet)">Fecha importante</span><span style="font-weight:700">'+esc(f.titulo)+'</span>'+(f.anio?'<span class="muted" style="font-size:12px">Cumple '+(parseISO(S.selDay).getFullYear()-f.anio)+'</span>':'')+'</span></button>').join('');
+  out+=evs.length?evs.map(e=>'<button class="item" style="border:0;text-align:left;width:100%" data-act="evento" data-id="'+e.id+'"><span style="width:4px;align-self:stretch;border-radius:4px;background:var(--blue)" aria-hidden="true"></span><span class="col" style="flex:1"><span class="num" style="font-size:13px;font-weight:800;color:var(--blue)">'+esc(e.hora||'Todo el día')+'</span><span style="font-weight:700">'+esc(e.titulo)+'</span>'+((e.repite&&e.repite!=='NO')||e.nota?'<span class="muted" style="font-size:12px">'+[e.repite&&e.repite!=='NO'?repLabel(e.repite):'',e.nota?esc(e.nota):''].filter(Boolean).join(' · ')+'</span>':'')+'</span></button>').join(''):(fds.length?'':'<div class="empty">Día libre. Tocá + para anotar algo.</div>');
   out+='</section>';
   return out;
 }
@@ -380,8 +396,9 @@ function sheetEvento(id){
   openSheet(id?'Editar recordatorio':'Nuevo recordatorio','<form data-form="evento" data-id="'+(id||'')+'">'+
    '<label class="f">Qué<input id="ev-titulo" name="titulo" required value="'+esc(e.titulo||'')+'" placeholder="Ej: Reunión con cliente"></label>'+
    '<div class="f2"><label class="f">Día<input id="ev-fecha" name="fecha" type="date" required value="'+esc(e.fecha||todayISO())+'"></label><label class="f">Hora (opcional)<input id="ev-hora" name="hora" type="time" value="'+esc(e.hora||'')+'"></label></div>'+
+   '<label class="f">Repetir<select id="ev-repite" name="repite">'+opts(REPITE,e.repite||'NO')+'</select></label>'+
    '<label class="f">Nota (opcional)<input id="ev-nota" name="nota" value="'+esc(e.nota||'')+'"></label>'+
-   '<button class="btn" style="background:var(--blue);color:var(--bg)" type="submit">Guardar</button>'+(id?gcalBtn({titulo:e.titulo,fecha:e.fecha,hora:e.hora,detalle:e.nota}):'')+delBtn('eventos',id)+'</form>'+
+   '<button class="btn" style="background:var(--blue);color:var(--bg)" type="submit">Guardar</button>'+(id?gcalBtn({titulo:e.titulo,fecha:e.fecha,hora:e.hora,detalle:e.nota,recur:e.repite&&e.repite!=='NO'?e.repite:null}):'')+delBtn('eventos',id)+'</form>'+
    (id?'':'<p class="note" style="margin:0">Después de guardarlo vas a poder mandarlo a Google Calendar para que te suene la alerta.</p>'));
 }
 function sheetVenc(id){
@@ -479,6 +496,13 @@ async function importData(file){
   }catch(e){toast('Ese archivo no es una copia de Ordenado')}
 }
 
+/* ---------- install ---------- */
+let installEvt=null;
+const isStandalone=()=>window.matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;render()});
+window.addEventListener('appinstalled',()=>{installEvt=null;toast('Ordenado quedó instalada');render()});
+async function doInstall(){if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice}catch(e){}installEvt=null;render()}
+
 /* ---------- events ---------- */
 document.addEventListener('change',e=>{if(e.target.id==='fileCam'||e.target.id==='fileGal')onFile(e.target.files&&e.target.files[0]);if(e.target.id==='importFile')importData(e.target.files&&e.target.files[0])});
 let delArm=null;
@@ -490,6 +514,7 @@ document.addEventListener('click',async e=>{
   if(act==='scan')return sheetScan();
   if(act==='manual')return sheetTicketForm({});
   if(act==='live')return liveScan();
+  if(act==='install')return doInstall();
   if(act==='backup')return sheetBackup();
   if(act==='export')return exportData();
   if(act==='ticket')return sheetTicket(id);
@@ -518,7 +543,7 @@ document.addEventListener('submit',async e=>{
     if(cuit.length!==11)return toast('El CUIT tiene que tener 11 números');if(monto==null)return toast('Revisá el monto');
     k='tickets';data={cuit,razon:fd.razon.trim(),tipo:fd.tipo,pv:fd.pv.replace(/\D/g,'').padStart(4,'0'),nro:fd.nro.replace(/\D/g,'').padStart(8,'0'),fecha:fd.fecha,monto,rubro:fd.rubro};
     if(!fd.pv)data.pv='';if(!fd.nro)data.nro='';ls.set('rubro',fd.rubro);if(!id){data.cargado=false;S.tkMonth=fd.fecha.slice(0,7)}msg='Ticket guardado'}
-  if(kind==='evento'){k='eventos';data={titulo:fd.titulo.trim(),fecha:fd.fecha,hora:fd.hora||'',nota:fd.nota.trim()};msg='Recordatorio guardado'}
+  if(kind==='evento'){k='eventos';data={titulo:fd.titulo.trim(),fecha:fd.fecha,hora:fd.hora||'',repite:fd.repite||'NO',nota:fd.nota.trim()};msg='Recordatorio guardado'}
   if(kind==='venc'){k='venc';data={titulo:fd.titulo.trim(),fecha:fd.fecha,monto:parseMoney(fd.monto),repite:fd.repite};if(!id)data.pagado=false;msg='Vencimiento guardado'}
   if(kind==='fecha'){k='fechas';const d=parseISO(fd.fecha);data={titulo:fd.titulo.trim(),dia:d.getDate(),mes:d.getMonth()+1,anio:fd.conAnio?d.getFullYear():null};msg='Fecha guardada'}
   const ok=await safe(()=>id?store.update(k,id,data):store.add(k,data),msg);
