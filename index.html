@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ordenado</title>
+<meta name="theme-color" content="#0F1115">
+<meta name="description" content="Tickets para SiRADIG, agenda, vencimientos y fechas importantes.">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: one-screen phone app — scrolling view above a fixed bottom nav; forms open as bottom sheets. Deliberately single dark theme. */
+:root{
+  --bg:#0F1115; --surface:#1A1D23; --surface2:#262A31; --line:#2E333B; --nav:#13161B;
+  --fg:#F2F2EE; --muted:#9AA0A8; --ink:#14161A;
+  --lime:#C6F36B; --blue:#8AB4FF; --violet:#C4A7FF; --violet-ink:#17112A;
+  --orange:#FFB066; --red:#FF8A7A; --amber:#FFC857; --teal:#7FD9C0;
+  --font:'Manrope',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:15px;-webkit-tap-highlight-color:transparent;overflow:hidden}
+*{box-sizing:border-box}
+button,input,select{font-family:inherit;font-size:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+.app{height:100%;display:flex;flex-direction:column}
+#main{flex:1;overflow-y:auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 120px}
+.view{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{margin:0;font-size:28px;font-weight:800;letter-spacing:-.02em;text-wrap:balance}
+h2{margin:0;font-size:16px;font-weight:800}
+.eyebrow{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.muted{color:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
+.row{display:flex;align-items:center;gap:12px}
+.between{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.col{display:flex;flex-direction:column;gap:2px;min-width:0}
+.card{background:var(--surface);border-radius:22px;padding:16px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ico{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ico svg,.btn svg,.navb svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.btn{min-height:48px;border-radius:16px;border:0;padding:0 16px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+.btn-lime{background:var(--lime);color:var(--ink)}
+.btn-ghost{background:var(--surface2);color:var(--fg)}
+.btn-line{background:transparent;border:1px solid var(--line);color:var(--fg)}
+.btn-danger{background:transparent;border:1px solid #5A2E29;color:var(--red)}
+.btn-sm{min-height:40px;border-radius:12px;padding:0 12px;font-size:13px}
+.iconbtn{width:44px;height:44px;border-radius:14px;border:0;background:var(--surface);color:var(--fg);display:flex;align-items:center;justify-content:center}
+.iconbtn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.link{background:none;border:0;padding:6px 0;font-weight:800;font-size:13px;color:var(--lime)}
+.chip{font-size:12px;font-weight:700;padding:6px 10px;border-radius:99px;background:var(--surface2);color:#D6DAE0;white-space:nowrap}
+.empty{text-align:center;padding:22px 16px;color:var(--muted);background:var(--surface);border-radius:20px;display:flex;flex-direction:column;gap:12px;align-items:center}
+.list{display:flex;flex-direction:column;gap:10px}
+.item{background:var(--surface);border-radius:20px;padding:12px;display:flex;align-items:center;gap:12px}
+.item-main{flex:1;min-width:0;display:flex;align-items:center;gap:12px;background:none;border:0;padding:0;text-align:left}
+.ellip{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.datechip{width:50px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:6px 0;border-radius:14px}
+.datechip b{font-size:18px;line-height:1.1}
+.datechip span{font-size:11px;font-weight:700;text-transform:uppercase}
+
+/* Home blocks */
+.urgent{display:flex;align-items:center;gap:12px;padding:14px;border-radius:22px;background:#2A1F17;border:1px solid #4A3322}
+.hero{background:var(--violet);color:var(--violet-ink);border-radius:28px;padding:20px;display:flex;flex-direction:column;gap:16px}
+.hero .count{display:flex;flex-direction:column;align-items:center;justify-content:center;width:104px;height:104px;flex-shrink:0;border-radius:28px;background:var(--violet-ink);color:var(--violet)}
+.hero .count b{font-size:50px;line-height:1;letter-spacing:-.03em}
+.hero .mini{background:rgba(23,17,42,.1);border-radius:16px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;border:0;text-align:left;color:inherit}
+.tile{border-radius:24px;padding:16px;display:flex;flex-direction:column;justify-content:space-between;gap:10px;min-height:140px;border:0;text-align:left}
+.tile .big{font-size:26px;font-weight:800;line-height:1}
+
+/* Nav */
+nav.bar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--nav);border-top:1px solid #23272E;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:end;padding:8px max(10px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px))}
+.navb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:48px;background:none;border:0;color:#8D939C;font-size:11px;font-weight:600}
+.navb[aria-current="page"]{color:var(--lime);font-weight:800}
+.navb svg{width:22px;height:22px}
+.scanb{justify-self:center;width:60px;height:60px;margin-top:-30px;border-radius:20px;border:0;background:var(--lime);color:var(--ink);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(198,243,107,.25)}
+.scanb svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.fab{position:fixed;right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(100px + env(safe-area-inset-bottom,0px));z-index:15;width:58px;height:58px;border-radius:20px;border:0;display:flex;align-items:center;justify-content:center}
+.fab svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
+
+/* Segmented, filters */
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+.seg button{min-height:40px;padding:0 14px;border-radius:99px;border:1px solid var(--line);background:transparent;color:#C9CDD3;font-size:13px;font-weight:700}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--ink);border-color:var(--fg)}
+
+/* Calendar */
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}
+.cal .dow{text-align:center;font-size:12px;font-weight:700;color:var(--muted);padding-bottom:4px}
+.cal button{height:44px;border-radius:14px;border:0;background:transparent;color:var(--fg);font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0}
+.cal button i{width:5px;height:5px;border-radius:99px;background:transparent}
+.cal button.dot i{background:var(--blue)}
+.cal button.past{color:#6E747D}
+.cal button.today{box-shadow:inset 0 0 0 1.5px var(--blue)}
+.cal button.sel{background:var(--blue);color:var(--bg)}
+.cal button.sel i{background:var(--bg)}
+
+/* Bars */
+.stack{display:flex;height:10px;border-radius:99px;overflow:hidden;gap:3px;background:var(--surface2)}
+.sw{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+
+/* Sheet */
+.scrim{position:fixed;inset:0;z-index:40;background:rgba(5,6,8,.6);display:flex;align-items:flex-end;justify-content:center}
+.sheet{width:100%;max-width:560px;max-height:90%;overflow-y:auto;background:var(--bg);border-radius:28px 28px 0 0;border-top:1px solid var(--line);padding:10px max(20px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:16px}
+.grab{width:40px;height:5px;border-radius:9px;background:var(--line);align-self:center}
+form{display:flex;flex-direction:column;gap:14px}
+label.f{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700;color:#C9CDD3}
+.f input,.f select{min-height:50px;border-radius:14px;background:var(--surface);border:1px solid var(--line);padding:0 14px;font-size:16px;font-weight:600;color:var(--fg);width:100%}
+.f2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.option{display:flex;align-items:center;gap:14px;padding:16px;border-radius:20px;background:var(--surface);border:0;text-align:left;width:100%;cursor:pointer}
+.option input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.copyrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--surface2)}
+.copyrow:last-child{border-bottom:0}
+.copyrow .v{font-size:15px;font-weight:700;user-select:all;-webkit-user-select:all}
+.copybtn{min-width:44px;height:44px;border-radius:14px;border:0;background:var(--surface2);color:#D6DAE0;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 12px;font-size:12px;font-weight:800}
+.copybtn.ok{background:var(--lime);color:var(--ink)}
+.copybtn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.note{font-size:13px;color:var(--muted);line-height:1.5}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(110px + env(safe-area-inset-bottom,0px));z-index:60;background:var(--fg);color:var(--ink);padding:12px 16px;border-radius:14px;font-weight:700;font-size:14px;max-width:calc(100% - 32px);text-align:center}
+.spin{width:36px;height:36px;border-radius:99px;border:4px solid var(--surface2);border-top-color:var(--lime);animation:sp 1s linear infinite;align-self:center}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:3s}}
+body{margin:0}
+#main{padding-top:calc(20px + env(safe-area-inset-top,0px))}
+.scanner{position:relative;border-radius:24px;overflow:hidden;background:#000;aspect-ratio:3/4;max-width:100%}
+.scanner video{width:100%;height:100%;object-fit:cover;display:block}
+.scanner .frame{position:absolute;inset:18%;border:4px solid var(--lime);border-radius:26px;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
+</style>
+</head>
+<body>
+<div class="app">
+  <main id="main" aria-live="polite"></main>
+  <nav class="bar" aria-label="Navegación principal">
+    <button class="navb" data-go="inicio"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>Inicio</button>
+    <button class="navb" data-go="tickets"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>Tickets</button>
+    <button class="scanb" data-act="scan" aria-label="Agregar ticket"><svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 12h8"/></svg></button>
+    <button class="navb" data-go="agenda"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Agenda</button>
+    <button class="navb" data-go="avisos"><svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>Avisos</button>
+  </nav>
+  <div id="fab"></div>
+  <div id="sheetHost"></div>
+  <div id="toastHost"></div>
+</div>
+
+<script src="jsQR.js"></script>
+<script>
+(function(){
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const parseISO=s=>{const p=String(s||'').split('-').map(Number);return new Date(p[0],(p[1]||1)-1,p[2]||1)};
+const today0=()=>{const t=new Date();t.setHours(0,0,0,0);return t};
+const todayISO=()=>iso(new Date());
+const daysUntil=s=>Math.round((parseISO(s)-today0())/86400000);
+const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const MES3=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const DIAS=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+const fmtDate=s=>{const d=parseISO(s);return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()};
+const longDate=s=>{const d=parseISO(s);return cap(DIAS[d.getDay()])+' '+d.getDate()+' de '+MESES[d.getMonth()]};
+const fmtCuit=c=>{c=String(c||'').replace(/\D/g,'');return c.length===11?c.slice(0,2)+'-'+c.slice(2,10)+'-'+c.slice(10):c};
+const money=n=>{n=Number(n)||0;const dec=Math.round(n*100)%100!==0;return '$'+n.toLocaleString('es-AR',{minimumFractionDigits:dec?2:0,maximumFractionDigits:2})};
+const parseMoney=s=>{s=String(s||'').trim();if(!s)return null;if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');const n=Number(s.replace(/[^\d.]/g,''));return isNaN(n)?null:n};
+const cuando=n=>n<0?('Venció hace '+(-n)+(n===-1?' día':' días')):n===0?'Hoy':n===1?'Mañana':'En '+n+' días';
+const addMonths=(s,k)=>{const d=parseISO(s);const day=d.getDate();const t=new Date(d.getFullYear(),d.getMonth()+k,1);const last=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();t.setDate(Math.min(day,last));return iso(t)};
+const uid=()=>'l'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const ls={get(k,d){try{const v=localStorage.getItem('ordenado-'+k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem('ordenado-'+k,JSON.stringify(v))}catch(e){}}};
+
+const ICON={
+ back:'<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
+ next:'<svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>',
+ plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+ copy:'<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>',
+ check:'<svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>',
+ cam:'<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+ img:'<svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 16l-5-5-8 8.5"/></svg>',
+ pen:'<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>',
+ receipt:'<svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>',
+ cal:'<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
+ gift:'<svg viewBox="0 0 24 24"><rect x="3.5" y="8" width="17" height="4" rx="1"/><path d="M5 12v8h14v-8M12 8v12"/><path d="M12 8c-1.5-3-5-3.5-5-1.5S10 8 12 8zm0 0c1.5-3 5-3.5 5-1.5S14 8 12 8z"/></svg>',
+ warn:'<svg viewBox="0 0 24 24"><path d="M12 3 2.5 20h19z"/><path d="M12 10v4.5M12 17.5v.01"/></svg>',
+ bell:'<svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>'
+};
+
+const TIPOS={'1':'Factura A','2':'Nota de débito A','3':'Nota de crédito A','6':'Factura B','7':'Nota de débito B','8':'Nota de crédito B','11':'Factura C','12':'Nota de débito C','13':'Nota de crédito C','51':'Factura M','81':'Tique factura A','82':'Tique factura B','83':'Tique','111':'Tique factura C'};
+const RUBROS=['Gastos médicos y paramédicos','Cuotas de medicina prepaga','Alquiler de vivienda','Gastos de educación','Indumentaria y equipamiento de trabajo','Servicio doméstico','Primas de seguro','Intereses de crédito hipotecario','Otro'];
+const RCOL=['#8AB4FF','#C6F36B','#C4A7FF','#FFC857','#FFB066','#7FD9C0','#FF8A7A','#D6DAE0','#6E747D'];
+const rcol=r=>RCOL[Math.max(0,RUBROS.indexOf(r))];
+
+/* ---------- state + store ---------- */
+const COLS={tickets:'tickets',eventos:'eventos',venc:'vencimientos',fechas:'fechas'};
+const now=new Date();
+const S={tickets:[],eventos:[],venc:[],fechas:[],ready:false,view:'inicio',
+  calY:now.getFullYear(),calM:now.getMonth(),selDay:todayISO(),
+  tkMonth:todayISO().slice(0,7),tkFilter:'todos'};
+let db=null;
+
+function saveLocal(k){ls.set('data-'+k,S[k])}
+const store={
+  async add(k,data){data.creado=Date.now();
+    if(db){await db.collection(COLS[k]).add(data)}
+    else{data.id=uid();S[k].push(data);saveLocal(k);render()}},
+  async update(k,id,patch){
+    if(db){await db.doc(COLS[k]+'/'+id).update(patch)}
+    else{const it=S[k].find(x=>x.id===id);if(it)Object.assign(it,patch);saveLocal(k);render()}},
+  async remove(k,id){
+    if(db){await db.doc(COLS[k]+'/'+id).delete()}
+    else{S[k]=S[k].filter(x=>x.id!==id);saveLocal(k);render()}}
+};
+async function safe(fn,ok){try{await fn();if(ok)toast(ok);return true}catch(e){toast(e&&e.code==='quota_exceeded'?'Se llenó el espacio. Borrá registros viejos para seguir guardando.':'No se pudo guardar. Revisá la conexión y probá de nuevo.');return false}}
+
+/* ---------- derived ---------- */
+const pendVenc=()=>S.venc.filter(v=>!v.pagado).sort((a,b)=>a.fecha<b.fecha?-1:1);
+function nextFecha(f){const t=today0();let d=new Date(t.getFullYear(),f.mes-1,f.dia);if(d<t)d=new Date(t.getFullYear()+1,f.mes-1,f.dia);return d}
+const fechasOrd=()=>S.fechas.map(f=>{const d=nextFecha(f);return Object.assign({},f,{prox:iso(d),faltan:Math.round((d-today0())/86400000)})}).sort((a,b)=>a.faltan-b.faltan);
+function eventosFuturos(){const t=todayISO();const hm=pad(new Date().getHours())+':'+pad(new Date().getMinutes());
+  return S.eventos.filter(e=>e.fecha>t||(e.fecha===t&&(!e.hora||e.hora>=hm))).sort((a,b)=>(a.fecha+(a.hora||'00:00'))<(b.fecha+(b.hora||'00:00'))?-1:1)}
+const tkDelMes=m=>S.tickets.filter(t=>(t.fecha||'').slice(0,7)===m);
+
+function gcal(o){
+  let s,e;const c=o.fecha.replace(/-/g,'');
+  if(o.hora){const d=parseISO(o.fecha);const [h,mi]=o.hora.split(':').map(Number);d.setHours(h,mi);const f=new Date(d.getTime()+3600000);
+    const st=x=>iso(x).replace(/-/g,'')+'T'+pad(x.getHours())+pad(x.getMinutes())+'00';s=st(d);e=st(f)}
+  else{const n=parseISO(o.fecha);n.setDate(n.getDate()+1);s=c;e=iso(n).replace(/-/g,'')}
+  return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(o.titulo)+'&dates='+s+'/'+e+'&ctz=America/Argentina/Buenos_Aires'+(o.recur?'&recur='+encodeURIComponent('RRULE:FREQ='+o.recur):'')+(o.detalle?'&details='+encodeURIComponent(o.detalle):'');
+}
+const gcalBtn=o=>'<a class="btn btn-line" href="'+esc(gcal(o))+'" target="_blank" rel="noopener">'+ICON.bell+'Agregar alerta en Google Calendar</a>';
+
+/* ---------- views ---------- */
+function vInicio(){
+  const h=new Date().getHours();const saludo=h<12?'Buen día':h<20?'Buenas tardes':'Buenas noches';
+  let out='<header class="between"><div class="col"><span class="muted" style="font-size:13px;font-weight:600">'+esc(longDate(todayISO()))+'</span><h1>'+saludo+', Joaquín</h1></div><button class="ico" data-act="backup" aria-label="Respaldo de datos" style="border:0;background:var(--surface2);color:var(--lime);font-weight:800;font-size:17px">J</button></header>';
+  if(!S.ready)return out+'<div class="spin" role="status" aria-label="Cargando tus datos"></div>';
+  const pv=pendVenc();const urg=pv.filter(v=>daysUntil(v.fecha)<=3);
+  if(urg[0]){const u=urg[0];const n=daysUntil(u.fecha);
+    out+='<section class="urgent" aria-label="Urgente"><div class="ico" aria-hidden="true" style="background:var(--orange);color:#1E140B">'+ICON.warn+'</div><div class="col" style="flex:1"><span class="eyebrow" style="font-size:11px;color:var(--orange)">'+esc(n<0?'Vencido':n===0?'Vence hoy':'Vence '+cuando(n).toLowerCase())+'</span><span style="font-weight:800;font-size:16px" class="ellip">'+esc(u.titulo)+(u.monto?' · '+money(u.monto):'')+'</span></div><button class="btn btn-sm" style="background:var(--orange);color:var(--ink)" data-act="pagar" data-id="'+u.id+'">Ya pagué</button></section>';}
+  const fs=fechasOrd();
+  if(fs[0]){const f=fs[0];
+    out+='<section class="hero"><div class="between"><span class="eyebrow row" style="gap:8px"><span class="ico" style="width:auto;height:auto">'+ICON.gift+'</span>Fechas importantes</span><button class="link" style="color:var(--violet-ink)" data-go="fechas">Ver todas</button></div>'+
+    '<button data-act="fecha" data-id="'+f.id+'" class="row" style="gap:16px;background:none;border:0;padding:0;text-align:left;color:inherit"><div class="count"><b class="num">'+(f.faltan===0?'¡Hoy!':f.faltan)+'</b>'+(f.faltan===0?'':'<span style="font-size:13px;font-weight:800">'+(f.faltan===1?'día':'días')+'</span>')+'</div><div class="col" style="gap:4px"><span style="font-size:24px;font-weight:800;line-height:1.1">'+esc(f.titulo)+'</span><span style="font-size:14px;font-weight:700">'+esc(longDate(f.prox))+'</span>'+(f.anio?'<span style="font-size:13px;font-weight:600">Cumple '+(parseISO(f.prox).getFullYear()-f.anio)+'</span>':'')+'</div></button>';
+    if(fs.length>1){out+='<div class="grid2">'+fs.slice(1,3).map(x=>'<button class="mini" data-act="fecha" data-id="'+x.id+'"><span style="font-size:18px;font-weight:800" class="num">'+x.faltan+(x.faltan===1?' día':' días')+'</span><span style="font-size:13px;font-weight:700" class="ellip">'+esc(x.titulo)+' · '+fmtDate(x.prox).slice(0,5)+'</span></button>').join('')+'</div>'}
+    out+='</section>';
+  } else {
+    out+='<section class="hero"><span class="eyebrow">Fechas importantes</span><span style="font-size:20px;font-weight:800">Cumpleaños, aniversarios y todo lo que no te podés olvidar.</span><button class="btn" style="background:var(--violet-ink);color:var(--violet)" data-act="fecha">'+ICON.plus+'Agregar la primera fecha</button></section>';
+  }
+  const ev=eventosFuturos()[0];
+  const m=todayISO().slice(0,7);const tk=tkDelMes(m);const tot=tk.reduce((a,t)=>a+(Number(t.monto)||0),0);const pend=tk.filter(t=>!t.cargado).length;
+  out+='<div class="grid2"><button class="tile" style="background:var(--blue);color:var(--bg)" data-go="agenda"><div class="between" style="width:100%"><span class="eyebrow" style="font-size:11px">Agenda</span><span class="ico" style="width:auto;height:auto">'+ICON.cal+'</span></div>'+
+    (ev?'<div class="col" style="gap:3px"><span style="font-size:13px;font-weight:700">'+esc(daysUntil(ev.fecha)===0?'Hoy':daysUntil(ev.fecha)===1?'Mañana':longDate(ev.fecha))+'</span><span class="big num">'+esc(ev.hora||'Todo el día')+'</span><span style="font-size:14px;font-weight:700" class="ellip">'+esc(ev.titulo)+'</span></div>':'<div class="col"><span class="big" style="font-size:20px">Nada anotado</span><span style="font-size:13px;font-weight:700">Tocá para agregar</span></div>')+'</button>'+
+    '<button class="tile" style="background:var(--surface);color:var(--fg)" data-go="tickets"><div class="between" style="width:100%"><span class="eyebrow" style="font-size:11px;color:var(--lime)">Tickets</span><span class="ico" style="width:auto;height:auto;color:var(--lime)">'+ICON.receipt+'</span></div><div class="col" style="gap:3px"><span class="muted" style="font-size:13px;font-weight:600">Para deducir en '+MESES[new Date().getMonth()]+'</span><span class="big num">'+money(tot)+'</span><span style="font-size:13px;font-weight:700;color:'+(pend?'#FFC48F':'var(--lime)')+'">'+(tk.length?(pend?pend+' por cargar':'Todo cargado'):'Sin tickets todavía')+'</span></div></button></div>';
+  const sem=pv.filter(v=>daysUntil(v.fecha)<=7);
+  out+='<section class="card" style="display:flex;flex-direction:column;gap:12px"><div class="between"><h2 class="row" style="gap:8px"><span class="sw" style="background:var(--orange);border-radius:99px" aria-hidden="true"></span>Vencimientos de la semana</h2><button class="link" style="color:var(--orange)" data-go="avisos">Ver</button></div>'+
+   (sem.length?'<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">'+sem.slice(0,3).map(v=>{const n=daysUntil(v.fecha);const d=parseISO(v.fecha);return '<button data-act="venc" data-id="'+v.id+'" style="background:var(--surface2);border:0;border-radius:16px;padding:10px;display:flex;flex-direction:column;gap:2px;text-align:left;min-width:0"><span style="font-size:12px;font-weight:800;color:'+(n<0?'var(--red)':'var(--orange)')+'">'+(n<0?'VENCIDO':n===0?'HOY':DIAS[d.getDay()].slice(0,3).toUpperCase()+' '+d.getDate())+'</span><span style="font-size:14px;font-weight:700" class="ellip">'+esc(v.titulo)+'</span>'+(v.monto?'<span class="muted num" style="font-size:12px">'+money(v.monto)+'</span>':'')+'</button>'}).join('')+'</div>':'<p class="note" style="margin:0">Nada para pagar en los próximos 7 días.</p>')+'</section>';
+  const lb=ls.get('lastBackup',0);const hay=S.tickets.length+S.eventos.length+S.venc.length+S.fechas.length;
+  if(hay&&(!lb||Date.now()-lb>14*86400000))out+='<button class="card row" data-act="backup" style="border:1px solid var(--line);text-align:left;width:100%;color:var(--fg)"><span class="col" style="flex:1"><b>Hacé un respaldo</b><span class="muted" style="font-size:13px">Tus datos viven en este celular. Guardá una copia por las dudas.</span></span>'+ICON.next.replace('<svg','<svg width="20" height="20" style="fill:none;stroke:currentColor;stroke-width:2"')+'</button>';
+  return out;
+}
+
+function vTickets(){
+  const m=S.tkMonth;const [y,mm]=m.split('-').map(Number);
+  let all=tkDelMes(m).sort((a,b)=>a.fecha<b.fecha?1:-1);
+  const tot=all.reduce((a,t)=>a+(Number(t.monto)||0),0);const cargados=all.filter(t=>t.cargado).length;
+  const por={};all.forEach(t=>{por[t.rubro]=(por[t.rubro]||0)+(Number(t.monto)||0)});
+  const rub=Object.keys(por).sort((a,b)=>por[b]-por[a]);
+  const list=all.filter(t=>S.tkFilter==='pend'?!t.cargado:S.tkFilter==='arca'?t.cargado:true);
+  let out='<header class="between"><div class="col"><span class="muted" style="font-size:13px;font-weight:600">Deducciones SiRADIG</span><h1>Tickets</h1></div><button class="iconbtn" style="background:var(--lime);color:var(--ink)" data-act="scan" aria-label="Agregar ticket">'+ICON.plus+'</button></header>';
+  out+='<div class="between card" style="padding:8px"><button class="iconbtn" style="background:var(--surface2)" data-act="tkmes" data-d="-1" aria-label="Mes anterior">'+ICON.back+'</button><span style="font-weight:800">'+cap(MESES[mm-1])+' '+y+'</span><button class="iconbtn" style="background:var(--surface2)" data-act="tkmes" data-d="1" aria-label="Mes siguiente">'+ICON.next+'</button></div>';
+  out+='<section class="card" style="border-radius:26px;padding:20px;display:flex;flex-direction:column;gap:16px"><div class="between" style="align-items:flex-end"><div class="col" style="gap:4px"><span class="muted" style="font-size:13px;font-weight:600">Total deducible del mes</span><span class="num" style="font-size:36px;font-weight:800;letter-spacing:-.03em">'+money(tot)+'</span></div><span style="font-size:13px;font-weight:700;color:var(--lime)">'+cargados+' de '+all.length+' cargados</span></div>';
+  if(rub.length){out+='<div class="stack">'+rub.map(r=>'<div style="flex:'+por[r]+';background:'+rcol(r)+'"></div>').join('')+'</div><div class="list" style="gap:8px">'+rub.map(r=>'<div class="row" style="gap:10px;font-size:14px"><span class="sw" style="background:'+rcol(r)+'" aria-hidden="true"></span><span style="flex:1;min-width:0" class="ellip">'+esc(r)+'</span><span class="num" style="font-weight:700">'+money(por[r])+'</span></div>').join('')+'</div>'}
+  out+='</section>';
+  out+='<div class="seg" role="group" aria-label="Filtrar tickets">'+[['todos','Todos'],['pend','Pendientes'],['arca','Cargados']].map(f=>'<button data-act="tkfilter" data-f="'+f[0]+'" aria-pressed="'+(S.tkFilter===f[0])+'">'+f[1]+'</button>').join('')+'</div>';
+  if(!S.ready)out+='<div class="spin" role="status" aria-label="Cargando"></div>';
+  else if(!all.length)out+='<div class="empty"><span>No hay tickets en '+MESES[mm-1]+'.</span><button class="btn btn-lime" data-act="scan">'+ICON.cam+'Escanear un ticket</button></div>';
+  else if(!list.length)out+='<div class="empty">No hay tickets en este filtro.</div>';
+  else out+='<div class="list">'+list.map(t=>'<div class="item"><button class="item-main" data-act="ticket" data-id="'+t.id+'"><div class="ico" aria-hidden="true" style="background:var(--surface2);color:#D6DAE0">'+ICON.receipt+'</div><div class="col"><span style="font-weight:700" class="ellip">'+esc(t.razon||'CUIT '+fmtCuit(t.cuit))+'</span><span class="muted ellip" style="font-size:12px">'+fmtDate(t.fecha).slice(0,5)+' · '+esc(t.rubro)+'</span></div></button><div class="col" style="align-items:flex-end;gap:6px"><span class="num" style="font-weight:800">'+money(t.monto)+'</span><button data-act="tktoggle" data-id="'+t.id+'" style="min-height:30px;padding:0 10px;border-radius:99px;border:0;font-size:11px;font-weight:800;background:'+(t.cargado?'rgba(198,243,107,.14)':'#3A2C1E')+';color:'+(t.cargado?'var(--lime)':'#FFC48F')+'" aria-label="'+(t.cargado?'Marcar como pendiente':'Marcar como cargado en ARCA')+'">'+(t.cargado?'Cargado':'Pendiente')+'</button></div></div>').join('')+'</div>';
+  if(all.some(t=>!t.cargado))out+='<p class="note" style="margin:0">Para cargarlos: abrí SiRADIG en la página de ARCA, tocá cada ticket pendiente acá y copiá los datos campo por campo. Después marcalo como cargado.</p>';
+  return out;
+}
+
+function vAgenda(){
+  const y=S.calY,m=S.calM;const first=new Date(y,m,1);const off=(first.getDay()+6)%7;const nd=new Date(y,m+1,0).getDate();
+  const t=todayISO();const con={};S.eventos.forEach(e=>{con[e.fecha]=1});
+  let cells='';['L','M','M','J','V','S','D'].forEach(d=>cells+='<span class="dow" aria-hidden="true">'+d+'</span>');
+  for(let i=0;i<off;i++)cells+='<span></span>';
+  for(let d=1;d<=nd;d++){const s=y+'-'+pad(m+1)+'-'+pad(d);const cl=[con[s]?'dot':'',s<t?'past':'',s===t?'today':'',s===S.selDay?'sel':''].join(' ');
+    cells+='<button class="'+cl+'" data-act="day" data-d="'+s+'" aria-label="'+d+' de '+MESES[m]+(con[s]?', con eventos':'')+'" aria-pressed="'+(s===S.selDay)+'"><span>'+d+'</span><i></i></button>'}
+  const evs=S.eventos.filter(e=>e.fecha===S.selDay).sort((a,b)=>(a.hora||'')<(b.hora||'')?-1:1);
+  const n=daysUntil(S.selDay);
+  let out='<header class="between"><div class="col"><span class="muted" style="font-size:13px;font-weight:600">Agenda</span><h1>'+cap(MESES[m])+' '+y+'</h1></div><div class="row" style="gap:8px"><button class="iconbtn" data-act="calmes" data-d="-1" aria-label="Mes anterior">'+ICON.back+'</button><button class="iconbtn" data-act="calmes" data-d="1" aria-label="Mes siguiente">'+ICON.next+'</button></div></header>';
+  out+='<section class="card" style="border-radius:26px;padding:14px 10px"><div class="cal">'+cells+'</div></section>';
+  out+='<section class="list"><h2>'+(n===0?'Hoy · ':n===1?'Mañana · ':'')+esc(longDate(S.selDay))+'</h2>';
+  out+=evs.length?evs.map(e=>'<button class="item" style="border:0;text-align:left;width:100%" data-act="evento" data-id="'+e.id+'"><span style="width:4px;align-self:stretch;border-radius:4px;background:var(--blue)" aria-hidden="true"></span><span class="col" style="flex:1"><span class="num" style="font-size:13px;font-weight:800;color:var(--blue)">'+esc(e.hora||'Todo el día')+'</span><span style="font-weight:700">'+esc(e.titulo)+'</span>'+(e.nota?'<span class="muted" style="font-size:12px">'+esc(e.nota)+'</span>':'')+'</span></button>').join(''):'<div class="empty">Día libre. Tocá + para anotar algo.</div>';
+  out+='</section>';
+  return out;
+}
+
+function vAvisos(){
+  const pv=pendVenc();const pagados=S.venc.filter(v=>v.pagado);
+  const g=[['Vencidos y esta semana','var(--red)','rgba(255,138,122,.14)',v=>daysUntil(v.fecha)<=7],['Este mes','var(--amber)','rgba(255,200,87,.14)',v=>{const n=daysUntil(v.fecha);return n>7&&n<=31}],['Más adelante','var(--teal)','rgba(127,217,192,.14)',v=>daysUntil(v.fecha)>31]];
+  let out='<header class="between"><div class="col"><span class="muted" style="font-size:13px;font-weight:600">Tus pagos y trámites</span><h1>Vencimientos</h1></div><button class="iconbtn" style="background:var(--orange);color:#1E140B" data-act="venc" aria-label="Agregar vencimiento">'+ICON.plus+'</button></header>';
+  const sem=pv.filter(g[0][3]).length;
+  out+='<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">'+[[sem,'Esta semana','var(--red)'],[pv.length,'Pendientes','var(--amber)'],[S.venc.filter(v=>v.ultimoPago===todayISO()||v.pagado).length,'Pagados hoy','var(--lime)']].map(s=>'<div class="card" style="border-radius:18px;padding:12px"><div class="num" style="font-size:24px;font-weight:800;color:'+s[2]+'">'+s[0]+'</div><div class="muted" style="font-size:12px;font-weight:600">'+s[1]+'</div></div>').join('')+'</div>';
+  if(!S.ready)return out+'<div class="spin" role="status" aria-label="Cargando"></div>';
+  if(!S.venc.length)return out+'<div class="empty"><span>Anotá impuestos, servicios, seguros o trámites y la app te los ordena por urgencia.</span><button class="btn" style="background:var(--orange);color:var(--ink)" data-act="venc">'+ICON.plus+'Agregar vencimiento</button></div>';
+  g.forEach(gr=>{const its=pv.filter(gr[3]);if(!its.length)return;
+    out+='<section class="list"><h2 class="row" style="gap:8px;font-size:15px"><span class="sw" style="background:'+gr[1]+';border-radius:99px" aria-hidden="true"></span>'+gr[0]+'</h2>'+its.map(v=>vencRow(v,gr[1],gr[2])).join('')+'</section>'});
+  if(pagados.length)out+='<section class="list"><h2 class="muted" style="font-size:15px">Pagados</h2>'+pagados.map(v=>vencRow(v,'var(--muted)','var(--surface2)')).join('')+'</section>';
+  return out;
+}
+function vencRow(v,c,tint){const d=parseISO(v.fecha);const n=daysUntil(v.fecha);
+  const rep=v.repite==='MONTHLY'?'Todos los meses':v.repite==='YEARLY'?'Una vez por año':'Una sola vez';
+  return '<div class="item" style="opacity:'+(v.pagado?.55:1)+'"><button class="item-main" data-act="venc" data-id="'+v.id+'"><span class="datechip" style="background:'+tint+';color:'+c+'"><b class="num">'+d.getDate()+'</b><span>'+MES3[d.getMonth()]+'</span></span><span class="col"><span style="font-weight:700;'+(v.pagado?'text-decoration:line-through':'')+'" class="ellip">'+esc(v.titulo)+'</span><span class="muted ellip" style="font-size:12px">'+(v.pagado?'Pagado':esc(cuando(n)))+(v.monto?' · '+money(v.monto):'')+' · '+rep+'</span></span></button>'+
+  (v.pagado?'<button class="btn btn-sm btn-line" data-act="despagar" data-id="'+v.id+'">Deshacer</button>':'<button class="btn btn-sm btn-line" data-act="pagar" data-id="'+v.id+'">Ya pagué</button>')+'</div>'}
+
+function vFechas(){
+  const fs=fechasOrd();
+  let out='<header class="row"><button class="iconbtn" data-go="inicio" aria-label="Volver al inicio">'+ICON.back+'</button><h1 style="flex:1;font-size:24px">Fechas importantes</h1><button class="iconbtn" style="background:var(--violet);color:var(--violet-ink)" data-act="fecha" aria-label="Agregar fecha">'+ICON.plus+'</button></header>';
+  if(!S.ready)return out+'<div class="spin" role="status" aria-label="Cargando"></div>';
+  if(!fs.length)return out+'<div class="empty"><span>Cumpleaños, aniversarios, feriados. Te muestra cuántos días faltan.</span><button class="btn" style="background:var(--violet);color:var(--violet-ink)" data-act="fecha">'+ICON.plus+'Agregar fecha</button></div>';
+  out+='<div class="list">'+fs.map(f=>'<button class="item" style="border:0;text-align:left;width:100%" data-act="fecha" data-id="'+f.id+'"><span style="width:56px;height:56px;flex-shrink:0;border-radius:18px;background:rgba(196,167,255,.14);color:var(--violet);display:flex;flex-direction:column;align-items:center;justify-content:center"><b class="num" style="font-size:20px;line-height:1">'+(f.faltan===0?'Hoy':f.faltan)+'</b>'+(f.faltan===0?'':'<span style="font-size:11px;font-weight:700">'+(f.faltan===1?'día':'días')+'</span>')+'</span><span class="col" style="flex:1"><span style="font-weight:700">'+esc(f.titulo)+'</span><span class="muted" style="font-size:13px">'+esc(longDate(f.prox))+(f.anio?' · cumple '+(parseISO(f.prox).getFullYear()-f.anio):'')+'</span></span></button>').join('')+'</div>';
+  out+='<p class="note" style="margin:0">Para que te avise, entrá a cada fecha y tocá "Agregar alerta en Google Calendar". Se repite todos los años.</p>';
+  return out;
+}
+
+const VIEWS={inicio:vInicio,tickets:vTickets,agenda:vAgenda,avisos:vAvisos,fechas:vFechas};
+function render(){
+  $('#main').innerHTML='<div class="view">'+VIEWS[S.view]()+'</div>';
+  document.querySelectorAll('.navb').forEach(b=>{if(b.dataset.go===S.view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+  const fab={agenda:['evento','var(--blue)','var(--bg)','Nuevo recordatorio']}[S.view];
+  $('#fab').innerHTML=fab?'<button class="fab" data-act="'+fab[0]+'" style="background:'+fab[1]+';color:'+fab[2]+';box-shadow:0 10px 24px rgba(138,180,255,.3)" aria-label="'+fab[3]+'">'+ICON.plus+'</button>':'';
+}
+function go(v){S.view=v;ls.set('view',v);render();$('#main').scrollTop=0}
+
+/* ---------- sheets ---------- */
+let sheetOpen=false;
+function openSheet(title,body){
+  $('#sheetHost').innerHTML='<div class="scrim" data-act="close"><div class="sheet" role="dialog" aria-modal="true" aria-label="'+esc(title)+'"><span class="grab" aria-hidden="true"></span><div class="between"><h2 style="font-size:20px">'+esc(title)+'</h2><button class="iconbtn" data-act="close" aria-label="Cerrar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>'+body+'</div></div>';
+  sheetOpen=true;const f=$('.sheet input:not([type=file]),.sheet select');if(f&&!f.value)f.focus({preventScroll:true});
+}
+function closeSheet(){if(typeof stopScan==='function')stopScan();$('#sheetHost').innerHTML='';sheetOpen=false}
+let toastT;function toast(msg){$('#toastHost').innerHTML='<div class="toast" role="status">'+esc(msg)+'</div>';clearTimeout(toastT);toastT=setTimeout(()=>{$('#toastHost').innerHTML=''},2600)}
+
+function sheetScan(){
+  openSheet('Agregar ticket',
+   '<p class="note" style="margin:0">Si el ticket tiene código QR, la app lee sola el CUIT, el número, la fecha y el monto.</p>'+
+   '<button class="option" data-act="live" style="background:var(--lime);color:var(--ink)"><span class="ico" style="background:rgba(20,22,26,.1)">'+ICON.cam+'</span><span class="col"><b style="font-size:16px">Escanear con la cámara</b><span style="font-size:13px;font-weight:600">Apuntá al QR y listo</span></span></button>'+
+   '<label class="option"><input type="file" id="fileCam" accept="image/*" capture="environment"><span class="ico" style="background:var(--surface2);color:var(--fg)">'+ICON.cam+'</span><span class="col"><b style="font-size:16px">Sacar foto al ticket</b><span class="muted" style="font-size:13px">Si la cámara en vivo no anda</span></span></label>'+
+   '<label class="option"><input type="file" id="fileGal" accept="image/*"><span class="ico" style="background:var(--surface2);color:var(--fg)">'+ICON.img+'</span><span class="col"><b style="font-size:16px">Elegir foto de la galería</b><span class="muted" style="font-size:13px">Una foto o captura que ya tengas</span></span></label>'+
+   '<button class="option" data-act="manual"><span class="ico" style="background:var(--surface2);color:var(--fg)">'+ICON.pen+'</span><span class="col"><b style="font-size:16px">Cargar a mano</b><span class="muted" style="font-size:13px">Para tickets sin QR</span></span></button>');
+}
+const opts=(arr,sel)=>arr.map(o=>{const v=Array.isArray(o)?o[0]:o,l=Array.isArray(o)?o[1]:o;return '<option value="'+esc(v)+'"'+(String(v)===String(sel)?' selected':'')+'>'+esc(l)+'</option>'}).join('');
+const delBtn=(k,id)=>id?'<button type="button" class="btn btn-danger" data-act="del" data-k="'+k+'" data-id="'+id+'">Borrar</button>':'';
+
+function sheetTicketForm(p,id,msg){
+  p=p||{};const rubro=p.rubro||ls.get('rubro',RUBROS[0]);
+  openSheet(id?'Editar ticket':'Datos del ticket',(msg?'<p class="note" style="margin:0;color:'+(msg.ok?'var(--lime)':'#FFC48F')+';font-weight:700">'+esc(msg.t)+'</p>':'')+
+  '<form data-form="ticket" data-id="'+(id||'')+'">'+
+  '<label class="f">CUIT del comercio<input id="tk-cuit" name="cuit" inputmode="numeric" required value="'+esc(fmtCuit(p.cuit))+'" placeholder="30-12345678-9"></label>'+
+  '<label class="f">Razón social (opcional)<input id="tk-razon" name="razon" value="'+esc(p.razon||'')+'" placeholder="Ej: Farmacia del Centro"></label>'+
+  '<label class="f">Tipo de comprobante<select id="tk-tipo" name="tipo">'+opts(Object.entries(TIPOS),p.tipo||'6')+'</select></label>'+
+  '<div class="f2"><label class="f">Punto de venta<input id="tk-pv" name="pv" inputmode="numeric" value="'+esc(p.pv||'')+'" placeholder="0003"></label><label class="f">Número<input id="tk-nro" name="nro" inputmode="numeric" value="'+esc(p.nro||'')+'" placeholder="00012345"></label></div>'+
+  '<div class="f2"><label class="f">Fecha<input id="tk-fecha" name="fecha" type="date" required value="'+esc(p.fecha||todayISO())+'"></label><label class="f">Monto total<input id="tk-monto" name="monto" inputmode="decimal" required value="'+(p.monto!=null?esc(String(p.monto).replace('.',',')):'')+'" placeholder="12500,00"></label></div>'+
+  '<label class="f">Rubro de deducción<select id="tk-rubro" name="rubro">'+opts(RUBROS,rubro)+'</select></label>'+
+  '<button class="btn btn-lime" type="submit">Guardar ticket</button>'+delBtn('tickets',id)+'</form>');
+}
+function sheetTicket(id){
+  const t=S.tickets.find(x=>x.id===id);if(!t)return;
+  const rows=[['CUIT del comercio',fmtCuit(t.cuit),String(t.cuit).replace(/\D/g,'')],['Tipo de comprobante',TIPOS[t.tipo]||t.tipo,TIPOS[t.tipo]||t.tipo],['Punto de venta',t.pv,t.pv],['Número',t.nro,t.nro],['Fecha',fmtDate(t.fecha),fmtDate(t.fecha)],['Monto total',money(t.monto),(Number(t.monto)||0).toFixed(2).replace('.',',')]].filter(r=>r[1]);
+  openSheet(t.razon||'Ticket',
+   '<div class="card" style="display:flex;flex-direction:column;gap:6px"><span class="num" style="font-size:36px;font-weight:800;letter-spacing:-.03em">'+money(t.monto)+'</span><div class="row" style="gap:8px;flex-wrap:wrap"><span class="chip">'+esc(TIPOS[t.tipo]||'Comprobante')+'</span><span class="chip">'+fmtDate(t.fecha)+'</span><span class="chip" style="background:rgba(198,243,107,.12);color:var(--lime)">'+esc(t.rubro)+'</span></div></div>'+
+   '<div class="between"><h2>Datos para SiRADIG</h2><span class="muted" style="font-size:12px">Tocá para copiar</span></div>'+
+   '<div class="card" style="padding:4px 8px 4px 16px">'+rows.map(r=>'<div class="copyrow"><div class="col" style="flex:1"><span class="muted" style="font-size:12px;font-weight:600">'+esc(r[0])+'</span><span class="v num">'+esc(r[1])+'</span></div><button class="copybtn" data-act="copy" data-v="'+esc(r[2])+'" aria-label="Copiar '+esc(r[0])+'">'+ICON.copy+'</button></div>').join('')+'</div>'+
+   '<button class="btn '+(t.cargado?'btn-ghost':'btn-lime')+'" data-act="tktoggle" data-id="'+t.id+'" data-close="1">'+(t.cargado?'Marcar como pendiente':ICON.check+'Ya lo cargué en ARCA')+'</button>'+
+   '<div class="f2"><button class="btn btn-line" data-act="tkedit" data-id="'+t.id+'">Editar</button><button class="btn btn-danger" data-act="del" data-k="tickets" data-id="'+t.id+'">Borrar</button></div>');
+}
+function sheetEvento(id){
+  const e=id?S.eventos.find(x=>x.id===id):{fecha:S.selDay};if(!e)return;
+  openSheet(id?'Editar recordatorio':'Nuevo recordatorio','<form data-form="evento" data-id="'+(id||'')+'">'+
+   '<label class="f">Qué<input id="ev-titulo" name="titulo" required value="'+esc(e.titulo||'')+'" placeholder="Ej: Reunión con cliente"></label>'+
+   '<div class="f2"><label class="f">Día<input id="ev-fecha" name="fecha" type="date" required value="'+esc(e.fecha||todayISO())+'"></label><label class="f">Hora (opcional)<input id="ev-hora" name="hora" type="time" value="'+esc(e.hora||'')+'"></label></div>'+
+   '<label class="f">Nota (opcional)<input id="ev-nota" name="nota" value="'+esc(e.nota||'')+'"></label>'+
+   '<button class="btn" style="background:var(--blue);color:var(--bg)" type="submit">Guardar</button>'+(id?gcalBtn({titulo:e.titulo,fecha:e.fecha,hora:e.hora,detalle:e.nota}):'')+delBtn('eventos',id)+'</form>'+
+   (id?'':'<p class="note" style="margin:0">Después de guardarlo vas a poder mandarlo a Google Calendar para que te suene la alerta.</p>'));
+}
+function sheetVenc(id){
+  const v=id?S.venc.find(x=>x.id===id):{repite:'MONTHLY'};if(!v)return;
+  openSheet(id?'Editar vencimiento':'Nuevo vencimiento','<form data-form="venc" data-id="'+(id||'')+'">'+
+   '<label class="f">Qué vence<input id="vc-titulo" name="titulo" required value="'+esc(v.titulo||'')+'" placeholder="Ej: Monotributo"></label>'+
+   '<div class="f2"><label class="f">Fecha<input id="vc-fecha" name="fecha" type="date" required value="'+esc(v.fecha||'')+'"></label><label class="f">Monto (opcional)<input id="vc-monto" name="monto" inputmode="decimal" value="'+(v.monto!=null?esc(String(v.monto).replace('.',',')):'')+'"></label></div>'+
+   '<label class="f">Se repite<select id="vc-repite" name="repite">'+opts([['MONTHLY','Todos los meses'],['YEARLY','Una vez por año'],['NO','Una sola vez']],v.repite||'NO')+'</select></label>'+
+   '<button class="btn" style="background:var(--orange);color:var(--ink)" type="submit">Guardar</button>'+(id?gcalBtn({titulo:'Vence: '+v.titulo,fecha:v.fecha,recur:v.repite==='NO'?null:v.repite}):'')+delBtn('venc',id)+'</form>');
+}
+function sheetFecha(id){
+  const f=id?S.fechas.find(x=>x.id===id):{};if(!f)return;
+  const val=f.mes?((f.anio||new Date().getFullYear())+'-'+pad(f.mes)+'-'+pad(f.dia)):'';
+  const prox=f.mes?iso(nextFecha(f)):null;
+  openSheet(id?'Editar fecha':'Nueva fecha','<form data-form="fecha" data-id="'+(id||'')+'">'+
+   '<label class="f">Qué se festeja<input id="fe-titulo" name="titulo" required value="'+esc(f.titulo||'')+'" placeholder="Ej: Cumple de mamá"></label>'+
+   '<label class="f">Fecha<input id="fe-fecha" name="fecha" type="date" required value="'+esc(val)+'"></label>'+
+   '<label class="row" style="gap:10px;font-size:14px;font-weight:600;min-height:44px"><input id="fe-anio" type="checkbox" name="conAnio" style="width:22px;height:22px;accent-color:#C4A7FF"'+(f.anio?' checked':'')+'>Es un cumpleaños o aniversario: contar los años</label>'+
+   '<button class="btn" style="background:var(--violet);color:var(--violet-ink)" type="submit">Guardar</button>'+(id?gcalBtn({titulo:f.titulo,fecha:prox,recur:'YEARLY'}):'')+delBtn('fechas',id)+'</form>');
+}
+
+/* ---------- QR ---------- */
+async function decodeFile(file){
+  if(!window.jsQR)return null;
+  const url=URL.createObjectURL(file);
+  try{
+    const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=url});
+    for(const max of [1400,900,2200]){
+      const sc=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));const w=Math.round(img.naturalWidth*sc),h=Math.round(img.naturalHeight*sc);
+      const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(img,0,0,w,h);
+      const r=window.jsQR(x.getImageData(0,0,w,h).data,w,h,{inversionAttempts:'attemptBoth'});if(r&&r.data)return r.data;
+    }
+    return null;
+  }catch(e){return null}finally{URL.revokeObjectURL(url)}
+}
+function parseArca(text){
+  try{let p=null;
+    try{p=new URL(text).searchParams.get('p')}catch(e){const m=String(text).match(/[?&]p=([^&]+)/);p=m?decodeURIComponent(m[1]):null}
+    if(!p)return null;p=p.replace(/\s/g,'+').replace(/-/g,'+').replace(/_/g,'/');while(p.length%4)p+='=';
+    const j=JSON.parse(atob(p));if(!j||!j.cuit)return null;
+    const cuit=String(j.cuit);const prev=S.tickets.find(t=>String(t.cuit).replace(/\D/g,'')===cuit&&t.razon);
+    return{fecha:j.fecha,cuit,razon:prev?prev.razon:'',tipo:String(j.tipoCmp),pv:String(j.ptoVta||'').padStart(4,'0'),nro:String(j.nroCmp||'').padStart(8,'0'),monto:Number(j.importe)||0,rubro:prev?prev.rubro:undefined};
+  }catch(e){return null}
+}
+async function onFile(file){
+  if(!file)return;
+  openSheet('Leyendo el ticket','<div class="spin" role="status" aria-label="Leyendo"></div><p class="note" style="margin:0;text-align:center">Buscando el código QR…</p>');
+  const txt=await decodeFile(file);
+  if(!txt)return sheetTicketForm({},null,{t:'No encontré un QR en la foto. Probá con otra más cerca y con luz, o completá los datos a mano.'});
+  const d=parseArca(txt);
+  if(!d)return sheetTicketForm({},null,{t:'Leí un QR, pero no es de una factura de ARCA. Completá los datos a mano.'});
+  sheetTicketForm(d,null,{ok:1,t:'Datos leídos del QR. Revisá y elegí el rubro.'});
+}
+
+/* ---------- live camera ---------- */
+let stream=null,scanLoop=null;
+function stopScan(){if(scanLoop)cancelAnimationFrame(scanLoop);scanLoop=null;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}}
+async function liveScan(){
+  openSheet('Escanear QR','<div class="scanner"><video id="vid" playsinline muted></video><div class="frame" aria-hidden="true"></div></div><p class="note" id="scanMsg" style="margin:0;text-align:center">Apuntá al código QR del ticket.</p>');
+  try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280}},audio:false})}
+  catch(e){return sheetScanFail()}
+  const v=$('#vid');if(!v){stopScan();return}v.srcObject=stream;try{await v.play()}catch(e){}
+  const c=document.createElement('canvas');const x=c.getContext('2d',{willReadFrequently:true});let last=0;
+  const tick=t=>{scanLoop=requestAnimationFrame(tick);if(t-last<180||!v.videoWidth||!window.jsQR)return;last=t;
+    const sc=Math.min(1,720/Math.max(v.videoWidth,v.videoHeight));c.width=Math.round(v.videoWidth*sc);c.height=Math.round(v.videoHeight*sc);
+    x.drawImage(v,0,0,c.width,c.height);const r=window.jsQR(x.getImageData(0,0,c.width,c.height).data,c.width,c.height,{inversionAttempts:'dontInvert'});
+    if(r&&r.data){const d=parseArca(r.data);if(d){stopScan();if(navigator.vibrate)navigator.vibrate(80);sheetTicketForm(d,null,{ok:1,t:'Datos leídos del QR. Revisá y elegí el rubro.'})}else{const m=$('#scanMsg');if(m)m.textContent='Ese QR no es de una factura de ARCA. Probá con otro.'}}};
+  scanLoop=requestAnimationFrame(tick);
+}
+function sheetScanFail(){stopScan();openSheet('No pude abrir la cámara','<p class="note" style="margin:0">Dale permiso de cámara a la app (en Chrome: el candadito al lado de la dirección, Permisos, Cámara). Mientras tanto podés sacarle una foto al ticket.</p><label class="option" style="background:var(--lime);color:var(--ink)"><input type="file" id="fileCam" accept="image/*" capture="environment"><span class="ico" style="background:rgba(20,22,26,.1)">'+ICON.cam+'</span><span class="col"><b style="font-size:16px">Sacar foto al ticket</b></span></label>')}
+
+/* ---------- backup ---------- */
+function sheetBackup(){
+  const lb=ls.get('lastBackup',0);
+  openSheet('Respaldo de datos','<p class="note" style="margin:0">Todo lo que cargás queda guardado en este celular, sin cuentas ni servidores. Si borrás los datos de Chrome o cambiás de teléfono, se pierde. Por eso conviene guardar una copia cada tanto, por ejemplo en tu Google Drive o mandándotela por WhatsApp.</p>'+
+   '<div class="card"><div class="muted" style="font-size:13px">Tenés guardado</div><div style="font-weight:700;margin-top:4px">'+S.tickets.length+' tickets · '+S.eventos.length+' recordatorios · '+S.venc.length+' vencimientos · '+S.fechas.length+' fechas</div><div class="muted" style="font-size:13px;margin-top:6px">'+(lb?'Último respaldo: '+fmtDate(iso(new Date(lb))):'Todavía no hiciste ningún respaldo')+'</div></div>'+
+   '<button class="btn btn-lime" data-act="export">Guardar copia</button>'+
+   '<label class="option" style="justify-content:center"><input type="file" id="importFile" accept="application/json,.json"><b>Recuperar desde una copia</b></label>');
+}
+async function exportData(){
+  const data={app:'ordenado',version:1,fecha:new Date().toISOString(),tickets:S.tickets,eventos:S.eventos,venc:S.venc,fechas:S.fechas};
+  const name='ordenado-respaldo-'+todayISO()+'.json';
+  const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
+  try{const file=new File([blob],name,{type:'application/json'});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Respaldo de Ordenado'});ls.set('lastBackup',Date.now());closeSheet();toast('Copia lista');render();return}}catch(e){if(e&&e.name==='AbortError')return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
+  ls.set('lastBackup',Date.now());closeSheet();toast('Copia guardada en Descargas');render();
+}
+async function importData(file){
+  if(!file)return;
+  try{const d=JSON.parse(await file.text());if(!d||d.app!=='ordenado')throw 0;
+    const add=(k,arr)=>{const ids=new Set(S[k].map(x=>x.id));(arr||[]).forEach(x=>{if(x&&x.id&&!ids.has(x.id))S[k].push(x)});saveLocal(k)};
+    add('tickets',d.tickets);add('eventos',d.eventos);add('venc',d.venc);add('fechas',d.fechas);
+    closeSheet();render();toast('Datos recuperados');
+  }catch(e){toast('Ese archivo no es una copia de Ordenado')}
+}
+
+/* ---------- events ---------- */
+document.addEventListener('change',e=>{if(e.target.id==='fileCam'||e.target.id==='fileGal')onFile(e.target.files&&e.target.files[0]);if(e.target.id==='importFile')importData(e.target.files&&e.target.files[0])});
+let delArm=null;
+document.addEventListener('click',async e=>{
+  const g=e.target.closest('[data-go]');if(g){if(sheetOpen)closeSheet();go(g.dataset.go);return}
+  const a=e.target.closest('[data-act]');if(!a)return;
+  const act=a.dataset.act,id=a.dataset.id;
+  if(act==='close'){if(e.target===a||a.classList.contains('iconbtn'))closeSheet();return}
+  if(act==='scan')return sheetScan();
+  if(act==='manual')return sheetTicketForm({});
+  if(act==='live')return liveScan();
+  if(act==='backup')return sheetBackup();
+  if(act==='export')return exportData();
+  if(act==='ticket')return sheetTicket(id);
+  if(act==='tkedit'){const t=S.tickets.find(x=>x.id===id);return sheetTicketForm(t,id)}
+  if(act==='evento')return sheetEvento(id);
+  if(act==='venc')return sheetVenc(id);
+  if(act==='fecha')return sheetFecha(id);
+  if(act==='tkmes'){const [y,m]=S.tkMonth.split('-').map(Number);const d=new Date(y,m-1+Number(a.dataset.d),1);S.tkMonth=d.getFullYear()+'-'+pad(d.getMonth()+1);return render()}
+  if(act==='tkfilter'){S.tkFilter=a.dataset.f;return render()}
+  if(act==='calmes'){const d=new Date(S.calY,S.calM+Number(a.dataset.d),1);S.calY=d.getFullYear();S.calM=d.getMonth();return render()}
+  if(act==='day'){S.selDay=a.dataset.d;return render()}
+  if(act==='tktoggle'){const t=S.tickets.find(x=>x.id===id);if(!t)return;if(a.dataset.close)closeSheet();return safe(()=>store.update('tickets',id,{cargado:!t.cargado}),t.cargado?'Marcado como pendiente':'Marcado como cargado en ARCA')}
+  if(act==='pagar'){const v=S.venc.find(x=>x.id===id);if(!v)return;
+    if(v.repite==='MONTHLY'||v.repite==='YEARLY'){const nf=addMonths(v.fecha,v.repite==='MONTHLY'?1:12);return safe(()=>store.update('venc',id,{fecha:nf,ultimoPago:todayISO()}),'Pagado. El próximo vence el '+fmtDate(nf))}
+    return safe(()=>store.update('venc',id,{pagado:true,ultimoPago:todayISO()}),'Marcado como pagado')}
+  if(act==='despagar')return safe(()=>store.update('venc',id,{pagado:false}),'Vuelve a estar pendiente');
+  if(act==='copy'){const v=a.dataset.v;try{await navigator.clipboard.writeText(v);a.classList.add('ok');a.innerHTML=ICON.check+'Copiado';setTimeout(()=>{a.classList.remove('ok');a.innerHTML=ICON.copy},1800)}catch(err){const r=document.createRange();const el=a.parentElement.querySelector('.v');r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r);toast('Mantené apretado el dato marcado para copiarlo')}return}
+  if(act==='del'){if(delArm!==a){delArm=a;a.textContent='Tocá de nuevo para borrar';setTimeout(()=>{if(delArm===a){delArm=null;a.textContent='Borrar'}},3000);return}
+    delArm=null;closeSheet();return safe(()=>store.remove(a.dataset.k,id),'Borrado')}
+});
+document.addEventListener('submit',async e=>{
+  const f=e.target;if(!f.dataset.form)return;e.preventDefault();
+  const fd=Object.fromEntries(new FormData(f).entries());const id=f.dataset.id||null;const kind=f.dataset.form;
+  let k,data,msg;
+  if(kind==='ticket'){const monto=parseMoney(fd.monto);const cuit=fd.cuit.replace(/\D/g,'');
+    if(cuit.length!==11)return toast('El CUIT tiene que tener 11 números');if(monto==null)return toast('Revisá el monto');
+    k='tickets';data={cuit,razon:fd.razon.trim(),tipo:fd.tipo,pv:fd.pv.replace(/\D/g,'').padStart(4,'0'),nro:fd.nro.replace(/\D/g,'').padStart(8,'0'),fecha:fd.fecha,monto,rubro:fd.rubro};
+    if(!fd.pv)data.pv='';if(!fd.nro)data.nro='';ls.set('rubro',fd.rubro);if(!id){data.cargado=false;S.tkMonth=fd.fecha.slice(0,7)}msg='Ticket guardado'}
+  if(kind==='evento'){k='eventos';data={titulo:fd.titulo.trim(),fecha:fd.fecha,hora:fd.hora||'',nota:fd.nota.trim()};msg='Recordatorio guardado'}
+  if(kind==='venc'){k='venc';data={titulo:fd.titulo.trim(),fecha:fd.fecha,monto:parseMoney(fd.monto),repite:fd.repite};if(!id)data.pagado=false;msg='Vencimiento guardado'}
+  if(kind==='fecha'){k='fechas';const d=parseISO(fd.fecha);data={titulo:fd.titulo.trim(),dia:d.getDate(),mes:d.getMonth()+1,anio:fd.conAnio?d.getFullYear():null};msg='Fecha guardada'}
+  const ok=await safe(()=>id?store.update(k,id,data):store.add(k,data),msg);
+  if(ok){closeSheet();if(kind==='ticket'&&S.view!=='tickets')go('tickets')}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&sheetOpen)closeSheet()});
+
+/* ---------- start ---------- */
+const sv=ls.get('view','inicio');if(VIEWS[sv])S.view=sv;
+Object.keys(COLS).forEach(k=>{S[k]=ls.get('data-'+k,[])});S.ready=true;
+render();
+try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
+if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})})}
+})();
+</script>
+
+</body>
+</html>
