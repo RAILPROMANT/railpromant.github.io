@@ -126,6 +126,14 @@ body{margin:0}
 .scanner{position:relative;border-radius:24px;overflow:hidden;background:#000;aspect-ratio:3/4;max-width:100%}
 .scanner video{width:100%;height:100%;object-fit:cover;display:block}
 .scanner .frame{position:absolute;inset:18%;border:4px solid var(--lime);border-radius:26px;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
+@media print{
+  body,html{height:auto;overflow:visible;background:#fff}
+  #main,nav.bar,#fab,#toastHost{display:none!important}
+  #sheetHost .scrim{position:static;background:none;display:block}
+  #sheetHost .sheet{max-height:none;overflow:visible;border:0;padding:0;background:#fff;max-width:none}
+  #sheetHost .sheet>*:not(.recibo){display:none!important}
+  .recibo{border-radius:0!important;padding:0!important}
+}
 </style>
 </head>
 <body>
@@ -163,7 +171,7 @@ const fmtDate=s=>{const d=parseISO(s);return pad(d.getDate())+'/'+pad(d.getMonth
 const longDate=s=>{const d=parseISO(s);return cap(DIAS[d.getDay()])+' '+d.getDate()+' de '+MESES[d.getMonth()]};
 const fmtCuit=c=>{c=String(c||'').replace(/\D/g,'');return c.length===11?c.slice(0,2)+'-'+c.slice(2,10)+'-'+c.slice(10):c};
 const money=n=>{n=Number(n)||0;const dec=Math.round(n*100)%100!==0;return '$'+n.toLocaleString('es-AR',{minimumFractionDigits:dec?2:0,maximumFractionDigits:2})};
-const parseMoney=s=>{s=String(s||'').trim();if(!s)return null;if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');const n=Number(s.replace(/[^\d.]/g,''));return isNaN(n)?null:n};
+const parseMoney=s=>{s=String(s||'').trim().replace(/[$\s]/g,'');if(!s)return null;if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');else if(/^\d{1,3}(\.\d{3})+$/.test(s))s=s.replace(/\./g,'');const n=Number(s.replace(/[^\d.]/g,''));return isNaN(n)?null:n};
 const cuando=n=>n<0?('Venció hace '+(-n)+(n===-1?' día':' días')):n===0?'Hoy':n===1?'Mañana':'En '+n+' días';
 const addMonths=(s,k)=>{const d=parseISO(s);const day=d.getDate();const t=new Date(d.getFullYear(),d.getMonth()+k,1);const last=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();t.setDate(Math.min(day,last));return iso(t)};
 const uid=()=>'l'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -263,10 +271,14 @@ function vInicio(){
   const m=todayISO().slice(0,7);const tk=tkDelMes(m);const tot=tk.reduce((a,t)=>a+(Number(t.monto)||0),0);const pend=tk.filter(t=>!t.cargado).length;
   out+='<div class="grid2"><button class="tile" style="background:var(--blue);color:var(--bg)" data-go="agenda"><div class="between" style="width:100%"><span class="eyebrow" style="font-size:11px">Agenda</span><span class="ico" style="width:auto;height:auto">'+ICON.cal+'</span></div>'+
     (ev?'<div class="col" style="gap:3px"><span style="font-size:13px;font-weight:700">'+esc(daysUntil(ev.fecha)===0?'Hoy':daysUntil(ev.fecha)===1?'Mañana':longDate(ev.fecha))+'</span><span class="big num">'+esc(ev.hora||'Todo el día')+'</span><span style="font-size:14px;font-weight:700" class="ellip">'+esc(ev.titulo)+'</span></div>':'<div class="col"><span class="big" style="font-size:20px">Nada anotado</span><span style="font-size:13px;font-weight:700">Tocá para agregar</span></div>')+'</button>'+
-    '<button class="tile" style="background:var(--surface);color:var(--fg)" data-go="tickets"><div class="between" style="width:100%"><span class="eyebrow" style="font-size:11px;color:var(--lime)">Tickets</span><span class="ico" style="width:auto;height:auto;color:var(--lime)">'+ICON.receipt+'</span></div><div class="col" style="gap:3px"><span class="muted" style="font-size:13px;font-weight:600">Para deducir en '+MESES[new Date().getMonth()]+'</span><span class="big num">'+money(tot)+'</span><span style="font-size:13px;font-weight:700;color:'+(pend?'#FFC48F':'var(--lime)')+'">'+(tk.length?(pend?pend+' por cargar':'Todo cargado'):'Sin tickets todavía')+'</span></div></button></div>';
-  const sem=pv.filter(v=>daysUntil(v.fecha)<=7);
-  out+='<section class="card" style="display:flex;flex-direction:column;gap:12px"><div class="between"><h2 class="row" style="gap:8px"><span class="sw" style="background:var(--orange);border-radius:99px" aria-hidden="true"></span>Vencimientos de la semana</h2><button class="link" style="color:var(--orange)" data-go="avisos">Ver</button></div>'+
-   (sem.length?'<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">'+sem.slice(0,3).map(v=>{const n=daysUntil(v.fecha);const d=parseISO(v.fecha);return '<button data-act="venc" data-id="'+v.id+'" style="background:var(--surface2);border:0;border-radius:16px;padding:10px;display:flex;flex-direction:column;gap:2px;text-align:left;min-width:0"><span style="font-size:12px;font-weight:800;color:'+(n<0?'var(--red)':'var(--orange)')+'">'+(n<0?'VENCIDO':n===0?'HOY':DIAS[d.getDay()].slice(0,3).toUpperCase()+' '+d.getDate())+'</span><span style="font-size:14px;font-weight:700" class="ellip">'+esc(v.titulo)+'</span>'+(v.monto?'<span class="muted num" style="font-size:12px">'+money(v.monto)+'</span>':'')+'</button>'}).join('')+'</div>':'<p class="note" style="margin:0">Nada para pagar en los próximos 7 días.</p>')+'</section>';
+    '<button class="tile" style="background:var(--surface);color:var(--fg)" data-go="tickets"><div class="between" style="width:100%"><span class="eyebrow" style="font-size:11px;color:var(--lime)">Tickets</span><span class="ico" style="width:auto;height:auto;color:var(--lime)">'+ICON.receipt+'</span></div><div class="col" style="gap:3px"><span class="muted" style="font-size:13px;font-weight:600">Para deducir en '+MESES[new Date().getMonth()]+'</span><span class="big num ellip" style="font-size:'+(money(Math.round(tot)).length>9?'21px':'26px')+'">'+money(Math.round(tot))+'</span><span style="font-size:13px;font-weight:700;color:'+(pend?'#FFC48F':'var(--lime)')+'">'+(tk.length?(pend?pend+' por cargar':'Todo cargado'):'Sin tickets todavía')+'</span></div></button></div>';
+  const prox=pv.slice(0,3);const semN=pv.filter(v=>daysUntil(v.fecha)<=7).length;
+  out+='<section class="card" style="display:flex;flex-direction:column;gap:12px"><div class="between"><h2 class="row" style="gap:8px"><span class="sw" style="background:var(--orange);border-radius:99px" aria-hidden="true"></span>Próximos vencimientos</h2><button class="link" style="color:var(--orange)" data-go="avisos">Ver todos</button></div>'+
+   (prox.length?'<div class="list" style="gap:8px">'+prox.map(v=>{const n=daysUntil(v.fecha);const d=parseISO(v.fecha);const col=n<0?'var(--red)':n<=7?'var(--orange)':'var(--teal)';const tint=n<0?'rgba(255,138,122,.14)':n<=7?'rgba(255,176,102,.14)':'rgba(127,217,192,.14)';
+     return '<button data-act="venc" data-id="'+v.id+'" style="background:var(--surface2);border:0;border-radius:16px;padding:10px;display:flex;align-items:center;gap:12px;text-align:left;width:100%;color:var(--fg)"><span class="datechip" style="background:'+tint+';color:'+col+'"><b class="num">'+d.getDate()+'</b><span>'+MES3[d.getMonth()]+'</span></span><span class="col" style="flex:1"><span style="font-weight:700" class="ellip">'+esc(v.titulo)+'</span><span style="font-size:12px;font-weight:700;color:'+col+'">'+esc(cuando(n))+'</span></span>'+(v.monto?'<span class="num" style="font-weight:800">'+money(v.monto)+'</span>':'')+'</button>'}).join('')+'</div>'+(semN?'':'<p class="note" style="margin:0">Nada para pagar en los próximos 7 días.</p>')
+   :'<p class="note" style="margin:0">No tenés vencimientos cargados. Agregalos en Avisos.</p>')+'</section>';
+  {const emp=ls.get('empleada',null);const rr=ls.get('recibos',[]).sort((a,b)=>a.periodo<b.periodo?1:-1)[0];
+   out+='<button class="card row" data-go="sueldo" style="border:0;text-align:left;width:100%;color:var(--fg)"><span class="ico" style="background:rgba(127,217,192,.14);color:var(--teal)">'+ICON.receipt+'</span><span class="col" style="flex:1"><b>'+(emp?'Sueldo de '+esc(emp.nombre.split(' ')[0]):'Recibo de sueldo')+'</b><span class="muted" style="font-size:13px">'+(rr?'Último: '+MESES[Number(rr.periodo.slice(5))-1]+' · '+money(rr.neto):'Calculá el sueldo y lo que cargás en ARCA')+'</span></span>'+ICON.next.replace('<svg','<svg width="20" height="20" style="fill:none;stroke:currentColor;stroke-width:2"')+'</button>';}
   const lb=ls.get('lastBackup',0);const hay=S.tickets.length+S.eventos.length+S.venc.length+S.fechas.length;
   if(hay&&(!lb||Date.now()-lb>14*86400000))out+='<button class="card row" data-act="backup" style="border:1px solid var(--line);text-align:left;width:100%;color:var(--fg)"><span class="col" style="flex:1"><b>Hacé un respaldo</b><span class="muted" style="font-size:13px">Tus datos viven en este celular. Guardá una copia por las dudas.</span></span>'+ICON.next.replace('<svg','<svg width="20" height="20" style="fill:none;stroke:currentColor;stroke-width:2"')+'</button>';
   return out;
@@ -340,9 +352,10 @@ function vFechas(){
   return out;
 }
 
-const VIEWS={inicio:vInicio,tickets:vTickets,agenda:vAgenda,avisos:vAvisos,fechas:vFechas};
+const VIEWS={inicio:vInicio,tickets:vTickets,agenda:vAgenda,avisos:vAvisos,fechas:vFechas,sueldo:vSueldo};
 function render(){
   $('#main').innerHTML='<div class="view">'+VIEWS[S.view]()+'</div>';
+  if(S.view==='sueldo')updLiq();
   document.querySelectorAll('.navb').forEach(b=>{if(b.dataset.go===S.view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
   const fab={agenda:['evento','var(--blue)','var(--bg)','Nuevo recordatorio']}[S.view];
   $('#fab').innerHTML=fab?'<button class="fab" data-act="'+fab[0]+'" style="background:'+fab[1]+';color:'+fab[2]+';box-shadow:0 10px 24px rgba(138,180,255,.3)" aria-label="'+fab[3]+'">'+ICON.plus+'</button>':'';
@@ -479,7 +492,7 @@ function sheetBackup(){
    '<label class="option" style="justify-content:center"><input type="file" id="importFile" accept="application/json,.json"><b>Recuperar desde una copia</b></label>');
 }
 async function exportData(){
-  const data={app:'ordenado',version:1,fecha:new Date().toISOString(),tickets:S.tickets,eventos:S.eventos,venc:S.venc,fechas:S.fechas};
+  const data={app:'ordenado',version:2,fecha:new Date().toISOString(),tickets:S.tickets,eventos:S.eventos,venc:S.venc,fechas:S.fechas,extra:{recibos:ls.get('recibos',[]),empleada:ls.get('empleada',null),empleador:ls.get('empleador',null),escala:ls.get('escala',null)}};
   const name='ordenado-respaldo-'+todayISO()+'.json';
   const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
   try{const file=new File([blob],name,{type:'application/json'});
@@ -492,8 +505,174 @@ async function importData(file){
   try{const d=JSON.parse(await file.text());if(!d||d.app!=='ordenado')throw 0;
     const add=(k,arr)=>{const ids=new Set(S[k].map(x=>x.id));(arr||[]).forEach(x=>{if(x&&x.id&&!ids.has(x.id))S[k].push(x)});saveLocal(k)};
     add('tickets',d.tickets);add('eventos',d.eventos);add('venc',d.venc);add('fechas',d.fechas);
+    if(d.extra){const rc=ls.get('recibos',[]);const ids=new Set(rc.map(x=>x.id));(d.extra.recibos||[]).forEach(x=>{if(x&&x.id&&!ids.has(x.id))rc.push(x)});ls.set('recibos',rc);
+      ['empleada','empleador','escala'].forEach(k=>{if(d.extra[k]&&!ls.get(k,null))ls.set(k,d.extra[k])})}
     closeSheet();render();toast('Datos recuperados');
   }catch(e){toast('Ese archivo no es una copia de Ordenado')}
+}
+
+/* ---------- sueldo empleada doméstica ---------- */
+const CATS=[['generales','Tareas generales'],['cuidado','Asistencia y cuidado de personas'],['caseros','Caseros'],['especificas','Tareas específicas'],['supervisor','Supervisor/a']];
+const catLabel=k=>(CATS.find(c=>c[0]===k)||CATS[0])[1];
+const ESCALA_DEF={vigencia:'Octubre 2026',zona:31,
+  cat:{generales:{con:[4064.08,498582.06],sin:[4337.53,548429.23]},cuidado:{con:[4337.53,548429.23],sin:[4801.52,605050.00]},caseros:{con:[4337.53,548429.23],sin:[4337.53,548429.23]},especificas:{con:[4580.80,560776.33],sin:[4973.38,618187.89]},supervisor:{con:[4805.82,599514.52],sin:[5215.59,661702.46]}},
+  apVig:'Septiembre 2026 (vencen en octubre)',
+  ap:[{os:2084.85,art:729.90,sipa:7754.82},{os:3863.30,art:1459.48,sipa:11304.68},{os:25694.55,art:2128.79,sipa:16446.85}]};
+const getEsc=()=>ls.get('escala',null)||ESCALA_DEF;
+const BRK=['Menos de 12 horas semanales','De 12 a menos de 16 horas semanales','16 horas semanales o más'];
+const bracket=h=>{h=Number(h)||0;return h<12?0:h<16?1:2};
+const r2=n=>Math.round((Number(n)||0)*100)/100;
+const lastDay=p=>{const [y,m]=p.split('-').map(Number);return iso(new Date(y,m,0))};
+function aniosEntre(a,b){if(!a)return 0;const x=parseISO(a),y=parseISO(b);let n=y.getFullYear()-x.getFullYear();if(y.getMonth()<x.getMonth()||(y.getMonth()===x.getMonth()&&y.getDate()<x.getDate()))n--;return Math.max(0,n)}
+function numLetras(n){
+  const U=['','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez','once','doce','trece','catorce','quince','dieciséis','diecisiete','dieciocho','diecinueve','veinte','veintiuno','veintidós','veintitrés','veinticuatro','veinticinco','veintiséis','veintisiete','veintiocho','veintinueve'];
+  const D=['','','','treinta','cuarenta','cincuenta','sesenta','setenta','ochenta','noventa'];
+  const C=['','ciento','doscientos','trescientos','cuatrocientos','quinientos','seiscientos','setecientos','ochocientos','novecientos'];
+  const dos=x=>x<30?U[x]:D[Math.floor(x/10)]+(x%10?' y '+U[x%10]:'');
+  const tres=x=>x===100?'cien':(C[Math.floor(x/100)]+(x%100?(x>=100?' ':'')+dos(x%100):'')).trim();
+  const apoc=s=>s.replace(/veintiuno$/,'veintiún').replace(/uno$/,'un');
+  const mil=x=>{if(x<1000)return tres(x);const m=Math.floor(x/1000),r=x%1000;return (m===1?'mil':apoc(tres(m))+' mil')+(r?' '+tres(r):'')};
+  const ent=Math.floor(n+1e-9);let s;
+  if(ent===0)s='cero';else if(ent<1e6)s=mil(ent);else{const mm=Math.floor(ent/1e6),r=ent%1e6;s=(mm===1?'un millón':apoc(mil(mm))+' millones')+(r?' '+mil(r):'')}
+  const cts=Math.round((n-ent)*100);
+  return 'Pesos '+s+' con '+pad(cts)+'/100';
+}
+function calcSueldo(emp,f,excludeId){
+  const E=getEsc();const c=((E.cat[emp.categoria]||E.cat.generales)[emp.modalidad==='sin'?'sin':'con']);
+  const vh=Number(c[0]),vm=Number(c[1]);
+  const horasMes=Number(String(f.horasMes||'').replace(',','.'))||0;
+  const basico=r2(emp.forma==='mes'?vm:vh*horasMes);
+  const anios=aniosEntre(emp.ingreso,lastDay(f.periodo));
+  const antig=r2(basico*anios/100);
+  const zona=r2(emp.zona?basico*Number(E.zona)/100:0);
+  const h50=Number(String(f.h50||'').replace(',','.'))||0,h100=Number(String(f.h100||'').replace(',','.'))||0;
+  const ext50=r2(vh*1.5*h50),ext100=r2(vh*2*h100);
+  const otro=r2(parseMoney(f.otroMonto)||0);
+  const sinSac=r2(basico+antig+zona+ext50+ext100+otro);
+  let sac=0,sacBase=0;
+  if(f.sac){const [y,m]=f.periodo.split('-').map(Number);const desde=m<=6?1:7;
+    const prev=(ls.get('recibos',[])).filter(r=>r.id!==excludeId&&r.periodo.slice(0,4)===String(y)&&Number(r.periodo.slice(5))>=desde&&Number(r.periodo.slice(5))<=m).map(r=>Number(r.sinSac)||0);
+    sacBase=Math.max(sinSac,...prev,0);sac=r2(sacBase/2)}
+  const bruto=r2(sinSac+sac);const desc=r2(parseMoney(f.descMonto)||0);const neto=r2(bruto-desc);
+  const br=bracket(emp.horasSem);const a=E.ap[br];
+  const vep=r2(emp.jubilada?Number(a.art)+Number(a.sipa):Number(a.os)+Number(a.art)+Number(a.sipa));
+  return {vh,vm,horasMes,basico,anios,antig,zona,zonaPct:E.zona,h50,h100,ext50,ext100,otro,otroConcepto:(f.otroConcepto||'').trim(),sinSac,sac,sacBase,bruto,desc,descConcepto:(f.descConcepto||'').trim(),neto,br,ap:a,vep,escVig:E.vigencia,apVig:E.apVig};
+}
+function liqRows(c,emp){
+  const rows=[];
+  if(emp.forma==='mes')rows.push(['Sueldo básico mensual',c.basico]);else rows.push(['Básico ('+String(c.horasMes).replace('.',',')+' h × '+money(c.vh)+')',c.basico]);
+  if(c.antig)rows.push(['Antigüedad ('+c.anios+(c.anios===1?' año':' años')+' × 1%)',c.antig]);
+  if(c.zona)rows.push(['Zona desfavorable ('+c.zonaPct+'%)',c.zona]);
+  if(c.ext50)rows.push(['Horas extra al 50% ('+c.h50+' h)',c.ext50]);
+  if(c.ext100)rows.push(['Horas extra al 100% ('+c.h100+' h)',c.ext100]);
+  if(c.otro)rows.push([c.otroConcepto||'Otro adicional',c.otro]);
+  if(c.sac)rows.push(['Aguinaldo (SAC)',c.sac]);
+  return rows;
+}
+function liqResult(emp,c){
+  const rows=liqRows(c,emp);
+  const cp=(label,val,raw)=>'<div class="copyrow"><div class="col" style="flex:1"><span class="muted" style="font-size:12px;font-weight:600">'+esc(label)+'</span><span class="v num">'+esc(val)+'</span></div><button type="button" class="copybtn" data-act="copy" data-v="'+esc(raw)+'" aria-label="Copiar '+esc(label)+'">'+ICON.copy+'</button></div>';
+  const amt=n=>(Number(n)||0).toFixed(2).replace('.',',');
+  return '<section class="card" style="display:flex;flex-direction:column;gap:6px;background:#1C2416;border:1px solid #33421F"><span class="eyebrow" style="font-size:11px;color:var(--lime)">Neto a pagarle</span><span class="num" style="font-size:36px;font-weight:800;letter-spacing:-.03em">'+money(c.neto)+'</span><span class="muted" style="font-size:13px">Bruto '+money(c.bruto)+(c.desc?' · Descuentos '+money(c.desc):'')+'</span></section>'+
+  '<div class="between"><h2>Para cargar en ARCA</h2><span class="muted" style="font-size:12px">Recibo asistido</span></div>'+
+  '<div class="card" style="padding:4px 8px 4px 16px">'+
+   cp('Período',cap(MESES[Number(c.periodo.slice(5))-1])+' '+c.periodo.slice(0,4),c.periodo.slice(5)+'/'+c.periodo.slice(0,4))+
+   cp('Horas trabajadas en el mes',emp.forma==='mes'?String(Math.round(Number(emp.horasSem)*52/12))+' (aprox.)':String(c.horasMes).replace('.',','),emp.forma==='mes'?String(Math.round(Number(emp.horasSem)*52/12)):String(c.horasMes).replace('.',','))+
+   rows.map(r=>cp(r[0],money(r[1]),amt(r[1]))).join('')+
+   (c.desc?cp(c.descConcepto||'Descuento',money(c.desc),amt(c.desc)):'')+
+   cp('Total bruto',money(c.bruto),amt(c.bruto))+
+   cp('Neto a pagar',money(c.neto),amt(c.neto))+
+  '</div>'+
+  '<section class="card" style="display:flex;flex-direction:column;gap:8px"><div class="between"><h2 style="font-size:15px">A pagar a ARCA (VEP)</h2><span class="num" style="font-weight:800;font-size:18px">'+money(c.vep)+'</span></div>'+
+   '<span class="muted" style="font-size:12px">'+esc(BRK[c.br])+(emp.jubilada?' · trabajadora jubilada':'')+' · valores de '+esc(c.apVig)+'</span>'+
+   '<div class="list" style="gap:4px;font-size:13px">'+(emp.jubilada?'':'<div class="between"><span>Aporte obra social</span><span class="num">'+money(c.ap.os)+'</span></div>')+'<div class="between"><span>Cuota ART</span><span class="num">'+money(c.ap.art)+'</span></div><div class="between"><span>Contribución jubilatoria (SIPA)</span><span class="num">'+money(c.ap.sipa)+'</span></div></div>'+
+   '<span class="muted" style="font-size:12px">Se paga hasta el día 10 del mes siguiente, o el hábil que sigue.</span></section>';
+}
+function vSueldo(){
+  const emp=ls.get('empleada',null);const recs=ls.get('recibos',[]).sort((a,b)=>a.periodo<b.periodo?1:-1);
+  let out='<header class="row"><button class="iconbtn" data-go="inicio" aria-label="Volver al inicio">'+ICON.back+'</button><div class="col" style="flex:1"><span class="muted" style="font-size:13px;font-weight:600">Recibo de sueldo</span><h1 style="font-size:24px" class="ellip">'+esc(emp?emp.nombre:'Empleada doméstica')+'</h1></div><button class="iconbtn" data-act="escala" aria-label="Valores vigentes"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button></header>';
+  if(!emp)return out+'<div class="empty"><span>Cargá una sola vez los datos de la empleada: categoría, horas y fecha de ingreso. Después cada mes solo ponés las horas y la app calcula el sueldo y lo que tenés que cargar en ARCA.</span><button class="btn btn-lime" data-act="empleada">Cargar datos de la empleada</button></div>';
+  const E=getEsc();const c0=(E.cat[emp.categoria]||E.cat.generales)[emp.modalidad==='sin'?'sin':'con'];
+  out+='<button class="card" data-act="empleada" style="border:0;text-align:left;width:100%;color:var(--fg);display:flex;flex-direction:column;gap:6px"><div class="between"><b>'+esc(catLabel(emp.categoria))+' · '+(emp.modalidad==='sin'?'sin retiro':'con retiro')+'</b><span class="link">Editar</span></div><span class="muted" style="font-size:13px">'+(emp.forma==='mes'?'Mensual '+money(c0[1]):'Por hora '+money(c0[0]))+' · '+esc(emp.horasSem)+' h semanales · '+aniosEntre(emp.ingreso,todayISO())+' años de antigüedad'+(emp.zona?' · zona desfavorable':'')+(emp.jubilada?' · jubilada':'')+'</span></button>';
+  const per=S.liqPer||todayISO().slice(0,7);const sacDef=/-(06|12)$/.test(per);
+  const hm=emp.forma==='mes'?'':(S.liqHoras!=null?S.liqHoras:String(Math.round(Number(emp.horasSem)*52/12)));
+  out+='<form id="liq" data-form="liq" class="card" style="gap:12px"><h2>Liquidar un mes</h2>'+
+   '<div class="f2"><label class="f">Mes que se paga<input id="lq-per" name="periodo" type="month" required value="'+esc(per)+'"></label><label class="f">Fecha de pago<input id="lq-pago" name="fechaPago" type="date" required value="'+esc(todayISO())+'"></label></div>'+
+   (emp.forma==='mes'?'':'<label class="f">Horas trabajadas en el mes<input id="lq-horas" name="horasMes" inputmode="decimal" required value="'+esc(hm)+'"></label>')+
+   '<div class="f2"><label class="f">Horas extra al 50%<input id="lq-h50" name="h50" inputmode="decimal" placeholder="0"></label><label class="f">Horas extra al 100%<input id="lq-h100" name="h100" inputmode="decimal" placeholder="0"></label></div>'+
+   '<label class="row" style="gap:10px;font-size:14px;font-weight:600;min-height:44px"><input id="lq-sac" type="checkbox" name="sac" style="width:22px;height:22px;accent-color:#C6F36B"'+(sacDef?' checked':'')+'>Incluir aguinaldo (junio y diciembre)</label>'+
+   '<div class="f2"><label class="f">Otro adicional<input id="lq-oc" name="otroConcepto" placeholder="Ej: vacaciones"></label><label class="f">Monto<input id="lq-om" name="otroMonto" inputmode="decimal" placeholder="0"></label></div>'+
+   '<div class="f2"><label class="f">Descuento<input id="lq-dc" name="descConcepto" placeholder="Ej: adelanto"></label><label class="f">Monto<input id="lq-dm" name="descMonto" inputmode="decimal" placeholder="0"></label></div>'+
+   '<div id="liqRes" class="list" style="gap:12px"></div>'+
+   '<button class="btn btn-lime" type="submit">Guardar y ver recibo</button></form>';
+  if(recs.length)out+='<section class="list"><h2>Recibos guardados</h2>'+recs.map(r=>'<button class="item" style="border:0;text-align:left;width:100%" data-act="recibo" data-id="'+r.id+'"><span class="ico" style="background:var(--surface2);color:#D6DAE0">'+ICON.receipt+'</span><span class="col" style="flex:1"><b>'+cap(MESES[Number(r.periodo.slice(5))-1])+' '+r.periodo.slice(0,4)+(r.sac?' + aguinaldo':'')+'</b><span class="muted" style="font-size:12px">Pagado el '+fmtDate(r.fechaPago)+'</span></span><span class="num" style="font-weight:800">'+money(r.neto)+'</span></button>').join('')+'</section>';
+  out+='<p class="note" style="margin:0">Escala salarial: '+esc(E.vigencia)+'. Aportes: '+esc(E.apVig)+'. Cuando haya aumento, actualizá los valores con el botón de arriba a la derecha. Es una ayuda para el cálculo: el recibo oficial lo genera ARCA.</p>';
+  return out;
+}
+function updLiq(){
+  const f=$('#liq');const box=$('#liqRes');if(!f||!box)return;const emp=ls.get('empleada',null);if(!emp)return;
+  const fd=Object.fromEntries(new FormData(f).entries());fd.sac=!!fd.sac;if(!fd.periodo){box.innerHTML='';return}
+  S.liqPer=fd.periodo;if(fd.horasMes!=null)S.liqHoras=fd.horasMes;
+  const c=calcSueldo(emp,fd);c.periodo=fd.periodo;box.innerHTML=liqResult(emp,c);
+}
+function sheetEmpleada(){
+  const e=ls.get('empleada',{})||{};const er=ls.get('empleador',{})||{};
+  openSheet('Datos de la empleada','<form data-form="empleada">'+
+   '<label class="f">Nombre y apellido<input id="em-nom" name="nombre" required value="'+esc(e.nombre||'')+'"></label>'+
+   '<label class="f">CUIL<input id="em-cuil" name="cuil" inputmode="numeric" value="'+esc(fmtCuit(e.cuil||''))+'" placeholder="27-12345678-9"></label>'+
+   '<label class="f">Categoría<select id="em-cat" name="categoria">'+opts(CATS,e.categoria||'generales')+'</select></label>'+
+   '<div class="f2"><label class="f">Modalidad<select id="em-mod" name="modalidad">'+opts([['con','Con retiro'],['sin','Sin retiro']],e.modalidad||'con')+'</select></label><label class="f">Cobra<select id="em-forma" name="forma">'+opts([['hora','Por hora'],['mes','Por mes']],e.forma||'hora')+'</select></label></div>'+
+   '<div class="f2"><label class="f">Horas por semana<input id="em-hs" name="horasSem" inputmode="decimal" required value="'+esc(e.horasSem||'')+'" placeholder="Ej: 12"></label><label class="f">Fecha de ingreso<input id="em-ing" name="ingreso" type="date" required value="'+esc(e.ingreso||'')+'"></label></div>'+
+   '<label class="row" style="gap:10px;font-size:14px;font-weight:600;min-height:44px"><input id="em-zona" type="checkbox" name="zona" style="width:22px;height:22px;accent-color:#C6F36B"'+(e.zona?' checked':'')+'>Zona desfavorable (provincias patagónicas)</label>'+
+   '<label class="row" style="gap:10px;font-size:14px;font-weight:600;min-height:44px"><input id="em-jub" type="checkbox" name="jubilada" style="width:22px;height:22px;accent-color:#C6F36B"'+(e.jubilada?' checked':'')+'>Es jubilada</label>'+
+   '<h2 style="margin-top:6px">Tus datos (empleador)</h2>'+
+   '<label class="f">Nombre y apellido<input id="er-nom" name="erNombre" value="'+esc(er.nombre||'')+'"></label>'+
+   '<div class="f2"><label class="f">CUIT<input id="er-cuit" name="erCuit" inputmode="numeric" value="'+esc(fmtCuit(er.cuit||''))+'"></label><label class="f">Domicilio<input id="er-dom" name="erDom" value="'+esc(er.dom||'')+'"></label></div>'+
+   '<button class="btn btn-lime" type="submit">Guardar</button></form>');
+}
+function sheetEscala(){
+  const E=getEsc();
+  const num=(id,v)=>'<input id="'+id+'" inputmode="decimal" value="'+esc(String(v).replace('.',','))+'" style="min-height:44px;border-radius:12px;background:var(--surface);border:1px solid var(--line);padding:0 10px;font-size:15px;font-weight:600;color:var(--fg);width:100%">';
+  let rows=CATS.map(c=>'<div class="card" style="display:flex;flex-direction:column;gap:8px;padding:12px"><b style="font-size:14px">'+c[1]+'</b><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;font-size:12px;color:var(--muted)"><label>Con retiro, hora'+num('es-'+c[0]+'-con-h',E.cat[c[0]].con[0])+'</label><label>Con retiro, mes'+num('es-'+c[0]+'-con-m',E.cat[c[0]].con[1])+'</label><label>Sin retiro, hora'+num('es-'+c[0]+'-sin-h',E.cat[c[0]].sin[0])+'</label><label>Sin retiro, mes'+num('es-'+c[0]+'-sin-m',E.cat[c[0]].sin[1])+'</label></div></div>').join('');
+  let aps=E.ap.map((a,i)=>'<div class="card" style="display:flex;flex-direction:column;gap:8px;padding:12px"><b style="font-size:14px">'+BRK[i]+'</b><div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;font-size:12px;color:var(--muted)"><label>Obra social'+num('ap-'+i+'-os',a.os)+'</label><label>ART'+num('ap-'+i+'-art',a.art)+'</label><label>SIPA'+num('ap-'+i+'-sipa',a.sipa)+'</label></div></div>').join('');
+  openSheet('Valores vigentes','<form data-form="escala">'+
+   '<p class="note" style="margin:0">Cargué la escala de <b>'+esc(E.vigencia)+'</b> y los aportes de <b>'+esc(E.apVig)+'</b>. Cuando salga un aumento, cambiá los números acá. Los valores oficiales están en la página de ARCA de casas particulares.</p>'+
+   '<a class="btn btn-line" href="https://www.afip.gob.ar/casasparticulares/" target="_blank" rel="noopener">Abrir página de ARCA</a>'+
+   '<label class="f">Escala vigente desde<input id="es-vig" name="vig" value="'+esc(E.vigencia)+'"></label>'+rows+
+   '<label class="f">Zona desfavorable (%)'+num('es-zona',E.zona)+'</label>'+
+   '<label class="f">Aportes: valores de<input id="ap-vig" name="apvig" value="'+esc(E.apVig)+'"></label>'+aps+
+   '<button class="btn btn-lime" type="submit">Guardar valores</button><button type="button" class="btn btn-line" data-act="escalaReset">Volver a los valores de la app</button></form>');
+}
+function saveEscalaFromSheet(){
+  const g=id=>{const el=document.getElementById(id);return el?parseMoney(el.value):null};
+  const E=JSON.parse(JSON.stringify(getEsc()));
+  CATS.forEach(c=>{['con','sin'].forEach(m=>{const h=g('es-'+c[0]+'-'+m+'-h'),mm=g('es-'+c[0]+'-'+m+'-m');if(h!=null)E.cat[c[0]][m][0]=h;if(mm!=null)E.cat[c[0]][m][1]=mm})});
+  const z=g('es-zona');if(z!=null)E.zona=z;
+  E.ap.forEach((a,i)=>{['os','art','sipa'].forEach(k=>{const v=g('ap-'+i+'-'+k);if(v!=null)a[k]=v})});
+  E.vigencia=($('#es-vig').value||E.vigencia).trim();E.apVig=($('#ap-vig').value||E.apVig).trim();
+  ls.set('escala',E);
+}
+function reciboHTML(r){
+  const emp=r.emp||{};const er=r.empleador||{};
+  const rows=liqRows(r,emp);
+  const td='padding:6px 8px;border-bottom:1px solid #ddd';
+  return '<div class="recibo" style="background:#fff;color:#111;border-radius:16px;padding:18px;font-size:13px;line-height:1.45">'+
+   '<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:2px solid #111;padding-bottom:10px"><div><div style="font-weight:800;font-size:16px">Recibo de haberes</div><div>Personal de casas particulares · Ley 26.844</div></div><div style="text-align:right"><div><b>Período:</b> '+cap(MESES[Number(r.periodo.slice(5))-1])+' '+r.periodo.slice(0,4)+'</div><div><b>Fecha de pago:</b> '+fmtDate(r.fechaPago)+'</div></div></div>'+
+   '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:10px 0;border-bottom:1px solid #ccc"><div><div style="font-weight:800">Empleador</div><div>'+esc(er.nombre||'—')+'</div><div>CUIT: '+esc(fmtCuit(er.cuit)||'—')+'</div><div>'+esc(er.dom||'')+'</div></div><div><div style="font-weight:800">Trabajadora</div><div>'+esc(emp.nombre||'—')+'</div><div>CUIL: '+esc(fmtCuit(emp.cuil)||'—')+'</div><div>'+esc(catLabel(emp.categoria))+', '+(emp.modalidad==='sin'?'sin retiro':'con retiro')+'</div><div>Ingreso: '+(emp.ingreso?fmtDate(emp.ingreso):'—')+' · '+esc(emp.horasSem)+' h semanales</div></div></div>'+
+   '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;margin-top:8px;font-variant-numeric:tabular-nums"><thead><tr style="background:#f1f1f1"><th style="'+td+';text-align:left">Concepto</th><th style="'+td+';text-align:right">Haberes</th><th style="'+td+';text-align:right">Descuentos</th></tr></thead><tbody>'+
+   rows.map(x=>'<tr><td style="'+td+'">'+esc(x[0])+'</td><td style="'+td+';text-align:right">'+money(x[1])+'</td><td style="'+td+'"></td></tr>').join('')+
+   (r.desc?'<tr><td style="'+td+'">'+esc(r.descConcepto||'Descuento')+'</td><td style="'+td+'"></td><td style="'+td+';text-align:right">'+money(r.desc)+'</td></tr>':'')+
+   '<tr style="font-weight:800"><td style="'+td+'">Totales</td><td style="'+td+';text-align:right">'+money(r.bruto)+'</td><td style="'+td+';text-align:right">'+money(r.desc)+'</td></tr></tbody></table></div>'+
+   '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;padding:10px;background:#f1f1f1;border-radius:10px"><b>Neto a cobrar</b><b style="font-size:18px">'+money(r.neto)+'</b></div>'+
+   '<div style="margin-top:6px">Son: '+esc(numLetras(r.neto))+'.</div>'+
+   '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;margin-top:40px;text-align:center"><div style="border-top:1px solid #111;padding-top:4px">Firma del empleador</div><div style="border-top:1px solid #111;padding-top:4px">Firma de la trabajadora</div></div>'+
+   '<div style="margin-top:12px;font-size:11px;color:#555">Recibí conforme el importe neto de esta liquidación. Documento de ayuda generado con Ordenado: el recibo oficial se emite en ARCA, servicio Personal de Casas Particulares.</div></div>';
+}
+function sheetRecibo(id){
+  const r=ls.get('recibos',[]).find(x=>x.id===id);if(!r)return;
+  openSheet('Recibo '+MESES[Number(r.periodo.slice(5))-1]+' '+r.periodo.slice(0,4),reciboHTML(r)+
+   '<button class="btn btn-lime" data-act="print">Imprimir o guardar PDF</button>'+
+   '<button type="button" class="btn btn-danger" data-act="delrec" data-id="'+r.id+'">Borrar</button>');
 }
 
 /* ---------- install ---------- */
@@ -517,6 +696,13 @@ document.addEventListener('click',async e=>{
   if(act==='install')return doInstall();
   if(act==='backup')return sheetBackup();
   if(act==='export')return exportData();
+  if(act==='empleada')return sheetEmpleada();
+  if(act==='escala')return sheetEscala();
+  if(act==='escalaReset'){try{localStorage.removeItem('ordenado-escala')}catch(e){}closeSheet();render();return toast('Volvieron los valores de la app')}
+  if(act==='recibo')return sheetRecibo(id);
+  if(act==='print'){try{window.print()}catch(e){toast('Tu navegador no deja imprimir desde acá')}return}
+  if(act==='delrec'){if(delArm!==a){delArm=a;a.textContent='Tocá de nuevo para borrar';setTimeout(()=>{if(delArm===a){delArm=null;a.textContent='Borrar'}},3000);return}
+    delArm=null;ls.set('recibos',ls.get('recibos',[]).filter(r=>r.id!==id));closeSheet();render();return toast('Recibo borrado')}
   if(act==='ticket')return sheetTicket(id);
   if(act==='tkedit'){const t=S.tickets.find(x=>x.id===id);return sheetTicketForm(t,id)}
   if(act==='evento')return sheetEvento(id);
@@ -538,6 +724,16 @@ document.addEventListener('click',async e=>{
 document.addEventListener('submit',async e=>{
   const f=e.target;if(!f.dataset.form)return;e.preventDefault();
   const fd=Object.fromEntries(new FormData(f).entries());const id=f.dataset.id||null;const kind=f.dataset.form;
+  if(kind==='empleada'){const cuil=fd.cuil.replace(/\D/g,'');
+    ls.set('empleada',{nombre:fd.nombre.trim(),cuil,categoria:fd.categoria,modalidad:fd.modalidad,forma:fd.forma,horasSem:Number(String(fd.horasSem).replace(',','.'))||0,ingreso:fd.ingreso,zona:!!fd.zona,jubilada:!!fd.jubilada});
+    ls.set('empleador',{nombre:fd.erNombre.trim(),cuit:fd.erCuit.replace(/\D/g,''),dom:fd.erDom.trim()});
+    S.liqHoras=null;closeSheet();render();return toast('Datos guardados')}
+  if(kind==='escala'){saveEscalaFromSheet();closeSheet();render();return toast('Valores actualizados')}
+  if(kind==='liq'){const emp=ls.get('empleada',null);if(!emp)return;fd.sac=!!fd.sac;
+    if(emp.forma!=='mes'&&!(Number(String(fd.horasMes).replace(',','.'))>0))return toast('Poné las horas trabajadas en el mes');
+    const recs=ls.get('recibos',[]);const prev=recs.find(r=>r.periodo===fd.periodo);
+    const c=calcSueldo(emp,fd,prev&&prev.id);const r=Object.assign(c,{id:prev?prev.id:uid(),periodo:fd.periodo,fechaPago:fd.fechaPago,sac:fd.sac?c.sac:0,emp,empleador:ls.get('empleador',{})||{},creado:Date.now()});
+    ls.set('recibos',recs.filter(x=>x.periodo!==fd.periodo).concat([r]));render();sheetRecibo(r.id);return toast(prev?'Recibo actualizado':'Recibo guardado')}
   let k,data,msg;
   if(kind==='ticket'){const monto=parseMoney(fd.monto);const cuit=fd.cuit.replace(/\D/g,'');
     if(cuit.length!==11)return toast('El CUIT tiene que tener 11 números');if(monto==null)return toast('Revisá el monto');
@@ -549,6 +745,7 @@ document.addEventListener('submit',async e=>{
   const ok=await safe(()=>id?store.update(k,id,data):store.add(k,data),msg);
   if(ok){closeSheet();if(kind==='ticket'&&S.view!=='tickets')go('tickets')}
 });
+document.addEventListener('input',e=>{if(e.target.closest&&e.target.closest('#liq'))updLiq()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&sheetOpen)closeSheet()});
 
 /* ---------- start ---------- */
