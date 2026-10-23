@@ -523,7 +523,7 @@ const BRK=['Menos de 12 horas semanales','De 12 a menos de 16 horas semanales','
 const bracket=h=>{h=Number(h)||0;return h<12?0:h<16?1:2};
 const r2=n=>Math.round((Number(n)||0)*100)/100;
 const lastDay=p=>{const [y,m]=p.split('-').map(Number);return iso(new Date(y,m,0))};
-function aniosEntre(a,b){if(!a)return 0;const x=parseISO(a),y=parseISO(b);let n=y.getFullYear()-x.getFullYear();if(y.getMonth()<x.getMonth()||(y.getMonth()===x.getMonth()&&y.getDate()<x.getDate()))n--;return Math.max(0,n)}
+function aniosEntre(a,b){if(!a)return 0;if(a<'2020-09-01')a='2020-09-01';const x=parseISO(a),y=parseISO(b);let n=y.getFullYear()-x.getFullYear();if(y.getMonth()<x.getMonth()||(y.getMonth()===x.getMonth()&&y.getDate()<x.getDate()))n--;return Math.max(0,n)}
 function numLetras(n){
   const U=['','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez','once','doce','trece','catorce','quince','dieciséis','diecisiete','dieciocho','diecinueve','veinte','veintiuno','veintidós','veintitrés','veinticuatro','veinticinco','veintiséis','veintisiete','veintiocho','veintinueve'];
   const D=['','','','treinta','cuarenta','cincuenta','sesenta','setenta','ochenta','noventa'];
@@ -541,7 +541,8 @@ function calcSueldo(emp,f,excludeId){
   const E=getEsc();const c=((E.cat[emp.categoria]||E.cat.generales)[emp.modalidad==='sin'?'sin':'con']);
   const vh=Number(c[0]),vm=Number(c[1]);
   const horasMes=Number(String(f.horasMes||'').replace(',','.'))||0;
-  const basico=r2(emp.forma==='mes'?vm:vh*horasMes);
+  const remu=parseMoney(f.remu);
+  const basico=r2(emp.forma==='mes'?(remu!=null?remu:(Number(emp.sueldo)||vm)):vh*horasMes);
   const anios=aniosEntre(emp.ingreso,lastDay(f.periodo));
   const antig=r2(basico*anios/100);
   const zona=r2(emp.zona?basico*Number(E.zona)/100:0);
@@ -553,14 +554,14 @@ function calcSueldo(emp,f,excludeId){
   if(f.sac){const [y,m]=f.periodo.split('-').map(Number);const desde=m<=6?1:7;
     const prev=(ls.get('recibos',[])).filter(r=>r.id!==excludeId&&r.periodo.slice(0,4)===String(y)&&Number(r.periodo.slice(5))>=desde&&Number(r.periodo.slice(5))<=m).map(r=>Number(r.sinSac)||0);
     sacBase=Math.max(sinSac,...prev,0);sac=r2(sacBase/2)}
-  const bruto=r2(sinSac+sac);const desc=r2(parseMoney(f.descMonto)||0);const neto=r2(bruto-desc);
-  const br=bracket(emp.horasSem);const a=E.ap[br];
+  const bruto=r2(sinSac+sac);const br=bracket(emp.horasSem);const a=E.ap[br];
+  const aporte=r2(f.aporte&&!emp.jubilada?Number(a.os):0);const otroDesc=r2(parseMoney(f.descMonto)||0);const desc=r2(aporte+otroDesc);const neto=r2(bruto-desc);
   const vep=r2(emp.jubilada?Number(a.art)+Number(a.sipa):Number(a.os)+Number(a.art)+Number(a.sipa));
-  return {vh,vm,horasMes,basico,anios,antig,zona,zonaPct:E.zona,h50,h100,ext50,ext100,otro,otroConcepto:(f.otroConcepto||'').trim(),sinSac,sac,sacBase,bruto,desc,descConcepto:(f.descConcepto||'').trim(),neto,br,ap:a,vep,escVig:E.vigencia,apVig:E.apVig};
+  return {vh,vm,horasMes,basico,anios,antig,zona,zonaPct:E.zona,h50,h100,ext50,ext100,otro,otroConcepto:(f.otroConcepto||'').trim(),sinSac,sac,sacBase,bruto,aporte,otroDesc,desc,descConcepto:(f.descConcepto||'').trim(),neto,br,ap:a,vep,escVig:E.vigencia,apVig:E.apVig};
 }
 function liqRows(c,emp){
   const rows=[];
-  if(emp.forma==='mes')rows.push(['Sueldo básico mensual',c.basico]);else rows.push(['Básico ('+String(c.horasMes).replace('.',',')+' h × '+money(c.vh)+')',c.basico]);
+  if(emp.forma==='mes')rows.push(['Remuneración del mes',c.basico]);else rows.push(['Básico ('+String(c.horasMes).replace('.',',')+' h × '+money(c.vh)+')',c.basico]);
   if(c.antig)rows.push(['Antigüedad ('+c.anios+(c.anios===1?' año':' años')+' × 1%)',c.antig]);
   if(c.zona)rows.push(['Zona desfavorable ('+c.zonaPct+'%)',c.zona]);
   if(c.ext50)rows.push(['Horas extra al 50% ('+c.h50+' h)',c.ext50]);
@@ -579,13 +580,15 @@ function liqResult(emp,c){
    cp('Período',cap(MESES[Number(c.periodo.slice(5))-1])+' '+c.periodo.slice(0,4),c.periodo.slice(5)+'/'+c.periodo.slice(0,4))+
    cp('Horas trabajadas en el mes',emp.forma==='mes'?String(Math.round(Number(emp.horasSem)*52/12))+' (aprox.)':String(c.horasMes).replace('.',','),emp.forma==='mes'?String(Math.round(Number(emp.horasSem)*52/12)):String(c.horasMes).replace('.',','))+
    rows.map(r=>cp(r[0],money(r[1]),amt(r[1]))).join('')+
-   (c.desc?cp(c.descConcepto||'Descuento',money(c.desc),amt(c.desc)):'')+
+   (c.aporte?cp('Descuento: aporte obra social',money(c.aporte),amt(c.aporte)):'')+
+   (c.otroDesc?cp(c.descConcepto||'Otro descuento',money(c.otroDesc),amt(c.otroDesc)):'')+
    cp('Total bruto',money(c.bruto),amt(c.bruto))+
    cp('Neto a pagar',money(c.neto),amt(c.neto))+
   '</div>'+
   '<section class="card" style="display:flex;flex-direction:column;gap:8px"><div class="between"><h2 style="font-size:15px">A pagar a ARCA (VEP)</h2><span class="num" style="font-weight:800;font-size:18px">'+money(c.vep)+'</span></div>'+
    '<span class="muted" style="font-size:12px">'+esc(BRK[c.br])+(emp.jubilada?' · trabajadora jubilada':'')+' · valores de '+esc(c.apVig)+'</span>'+
-   '<div class="list" style="gap:4px;font-size:13px">'+(emp.jubilada?'':'<div class="between"><span>Aporte obra social</span><span class="num">'+money(c.ap.os)+'</span></div>')+'<div class="between"><span>Cuota ART</span><span class="num">'+money(c.ap.art)+'</span></div><div class="between"><span>Contribución jubilatoria (SIPA)</span><span class="num">'+money(c.ap.sipa)+'</span></div></div>'+
+   '<div class="list" style="gap:4px;font-size:13px">'+(emp.jubilada?'':'<div class="between"><span>Aporte obra social (de la trabajadora'+(c.aporte?', se lo descontaste':'')+')</span><span class="num">'+money(c.ap.os)+'</span></div>')+'<div class="between"><span>Contribuciones a tu cargo (jubilación y ART)</span><span class="num">'+money(Number(c.ap.art)+Number(c.ap.sipa))+'</span></div></div>'+
+   (c.aporte?'<span class="muted" style="font-size:12px">De estos '+money(c.vep)+', '+money(c.aporte)+' salen del sueldo de ella y '+money(c.vep-c.aporte)+' los ponés vos.</span>':'')+
    '<span class="muted" style="font-size:12px">Se paga hasta el día 10 del mes siguiente, o el hábil que sigue.</span></section>';
 }
 function vSueldo(){
@@ -593,16 +596,17 @@ function vSueldo(){
   let out='<header class="row"><button class="iconbtn" data-go="inicio" aria-label="Volver al inicio">'+ICON.back+'</button><div class="col" style="flex:1"><span class="muted" style="font-size:13px;font-weight:600">Recibo de sueldo</span><h1 style="font-size:24px" class="ellip">'+esc(emp?emp.nombre:'Empleada doméstica')+'</h1></div><button class="iconbtn" data-act="escala" aria-label="Valores vigentes"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button></header>';
   if(!emp)return out+'<div class="empty"><span>Cargá una sola vez los datos de la empleada: categoría, horas y fecha de ingreso. Después cada mes solo ponés las horas y la app calcula el sueldo y lo que tenés que cargar en ARCA.</span><button class="btn btn-lime" data-act="empleada">Cargar datos de la empleada</button></div>';
   const E=getEsc();const c0=(E.cat[emp.categoria]||E.cat.generales)[emp.modalidad==='sin'?'sin':'con'];
-  out+='<button class="card" data-act="empleada" style="border:0;text-align:left;width:100%;color:var(--fg);display:flex;flex-direction:column;gap:6px"><div class="between"><b>'+esc(catLabel(emp.categoria))+' · '+(emp.modalidad==='sin'?'sin retiro':'con retiro')+'</b><span class="link">Editar</span></div><span class="muted" style="font-size:13px">'+(emp.forma==='mes'?'Mensual '+money(c0[1]):'Por hora '+money(c0[0]))+' · '+esc(emp.horasSem)+' h semanales · '+aniosEntre(emp.ingreso,todayISO())+' años de antigüedad'+(emp.zona?' · zona desfavorable':'')+(emp.jubilada?' · jubilada':'')+'</span></button>';
-  const per=S.liqPer||todayISO().slice(0,7);const sacDef=/-(06|12)$/.test(per);
+  out+='<button class="card" data-act="empleada" style="border:0;text-align:left;width:100%;color:var(--fg);display:flex;flex-direction:column;gap:6px"><div class="between"><b>'+esc(catLabel(emp.categoria))+' · '+(emp.modalidad==='sin'?'sin retiro':'con retiro')+'</b><span class="link">Editar</span></div><span class="muted" style="font-size:13px">'+(emp.forma==='mes'?'Mensual '+money(Number(emp.sueldo)||c0[1]):'Por hora '+money(c0[0]))+' · '+esc(emp.horasSem)+' h semanales · '+aniosEntre(emp.ingreso,todayISO())+' años de antigüedad'+(emp.zona?' · zona desfavorable':'')+(emp.jubilada?' · jubilada':'')+'</span></button>';
+  const per=S.liqPer||(()=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);return iso(d).slice(0,7)})();const sacDef=/-(06|12)$/.test(per);
   const hm=emp.forma==='mes'?'':(S.liqHoras!=null?S.liqHoras:String(Math.round(Number(emp.horasSem)*52/12)));
   out+='<form id="liq" data-form="liq" class="card" style="gap:12px"><h2>Liquidar un mes</h2>'+
-   '<div class="f2"><label class="f">Mes que se paga<input id="lq-per" name="periodo" type="month" required value="'+esc(per)+'"></label><label class="f">Fecha de pago<input id="lq-pago" name="fechaPago" type="date" required value="'+esc(todayISO())+'"></label></div>'+
-   (emp.forma==='mes'?'':'<label class="f">Horas trabajadas en el mes<input id="lq-horas" name="horasMes" inputmode="decimal" required value="'+esc(hm)+'"></label>')+
+   '<div class="f2"><label class="f">Mes trabajado (período)<input id="lq-per" name="periodo" type="month" required value="'+esc(per)+'"></label><label class="f">Fecha de pago<input id="lq-pago" name="fechaPago" type="date" required value="'+esc(todayISO())+'"></label></div>'+
+   (emp.forma==='mes'?'<label class="f">Remuneración del mes<input id="lq-remu" name="remu" inputmode="decimal" required value="'+esc(S.liqRemu!=null?S.liqRemu:String(Number(emp.sueldo)||c0[1]).replace('.',','))+'"></label>':'<label class="f">Horas trabajadas en el mes<input id="lq-horas" name="horasMes" inputmode="decimal" required value="'+esc(hm)+'"></label>')+
    '<div class="f2"><label class="f">Horas extra al 50%<input id="lq-h50" name="h50" inputmode="decimal" placeholder="0"></label><label class="f">Horas extra al 100%<input id="lq-h100" name="h100" inputmode="decimal" placeholder="0"></label></div>'+
    '<label class="row" style="gap:10px;font-size:14px;font-weight:600;min-height:44px"><input id="lq-sac" type="checkbox" name="sac" style="width:22px;height:22px;accent-color:#C6F36B"'+(sacDef?' checked':'')+'>Incluir aguinaldo (junio y diciembre)</label>'+
    '<div class="f2"><label class="f">Otro adicional<input id="lq-oc" name="otroConcepto" placeholder="Ej: vacaciones"></label><label class="f">Monto<input id="lq-om" name="otroMonto" inputmode="decimal" placeholder="0"></label></div>'+
-   '<div class="f2"><label class="f">Descuento<input id="lq-dc" name="descConcepto" placeholder="Ej: adelanto"></label><label class="f">Monto<input id="lq-dm" name="descMonto" inputmode="decimal" placeholder="0"></label></div>'+
+   (emp.jubilada?'':'<label class="row" style="gap:10px;font-size:14px;font-weight:600;min-height:44px"><input id="lq-ap" type="checkbox" name="aporte" style="width:22px;height:22px;accent-color:#C6F36B" checked>Descontar su aporte de obra social ('+money(E.ap[bracket(emp.horasSem)].os)+')</label>')+
+   '<div class="f2"><label class="f">Otro descuento<input id="lq-dc" name="descConcepto" placeholder="Ej: adelanto"></label><label class="f">Monto<input id="lq-dm" name="descMonto" inputmode="decimal" placeholder="0"></label></div>'+
    '<div id="liqRes" class="list" style="gap:12px"></div>'+
    '<button class="btn btn-lime" type="submit">Guardar y ver recibo</button></form>';
   if(recs.length)out+='<section class="list"><h2>Recibos guardados</h2>'+recs.map(r=>'<button class="item" style="border:0;text-align:left;width:100%" data-act="recibo" data-id="'+r.id+'"><span class="ico" style="background:var(--surface2);color:#D6DAE0">'+ICON.receipt+'</span><span class="col" style="flex:1"><b>'+cap(MESES[Number(r.periodo.slice(5))-1])+' '+r.periodo.slice(0,4)+(r.sac?' + aguinaldo':'')+'</b><span class="muted" style="font-size:12px">Pagado el '+fmtDate(r.fechaPago)+'</span></span><span class="num" style="font-weight:800">'+money(r.neto)+'</span></button>').join('')+'</section>';
@@ -612,7 +616,7 @@ function vSueldo(){
 function updLiq(){
   const f=$('#liq');const box=$('#liqRes');if(!f||!box)return;const emp=ls.get('empleada',null);if(!emp)return;
   const fd=Object.fromEntries(new FormData(f).entries());fd.sac=!!fd.sac;if(!fd.periodo){box.innerHTML='';return}
-  S.liqPer=fd.periodo;if(fd.horasMes!=null)S.liqHoras=fd.horasMes;
+  S.liqPer=fd.periodo;if(fd.horasMes!=null)S.liqHoras=fd.horasMes;if(fd.remu!=null)S.liqRemu=fd.remu;fd.aporte=!!fd.aporte;
   const c=calcSueldo(emp,fd);c.periodo=fd.periodo;box.innerHTML=liqResult(emp,c);
 }
 function sheetEmpleada(){
@@ -622,6 +626,7 @@ function sheetEmpleada(){
    '<label class="f">CUIL<input id="em-cuil" name="cuil" inputmode="numeric" value="'+esc(fmtCuit(e.cuil||''))+'" placeholder="27-12345678-9"></label>'+
    '<label class="f">Categoría<select id="em-cat" name="categoria">'+opts(CATS,e.categoria||'generales')+'</select></label>'+
    '<div class="f2"><label class="f">Modalidad<select id="em-mod" name="modalidad">'+opts([['con','Con retiro'],['sin','Sin retiro']],e.modalidad||'con')+'</select></label><label class="f">Cobra<select id="em-forma" name="forma">'+opts([['hora','Por hora'],['mes','Por mes']],e.forma||'hora')+'</select></label></div>'+
+   '<label class="f">Sueldo mensual acordado (si cobra por mes)<input id="em-sueldo" name="sueldo" inputmode="decimal" value="'+(e.sueldo?esc(String(e.sueldo).replace('.',',')):'')+'" placeholder="Si lo dejás vacío uso la escala"></label>'+
    '<div class="f2"><label class="f">Horas por semana<input id="em-hs" name="horasSem" inputmode="decimal" required value="'+esc(e.horasSem||'')+'" placeholder="Ej: 12"></label><label class="f">Fecha de ingreso<input id="em-ing" name="ingreso" type="date" required value="'+esc(e.ingreso||'')+'"></label></div>'+
    '<label class="row" style="gap:10px;font-size:14px;font-weight:600;min-height:44px"><input id="em-zona" type="checkbox" name="zona" style="width:22px;height:22px;accent-color:#C6F36B"'+(e.zona?' checked':'')+'>Zona desfavorable (provincias patagónicas)</label>'+
    '<label class="row" style="gap:10px;font-size:14px;font-weight:600;min-height:44px"><input id="em-jub" type="checkbox" name="jubilada" style="width:22px;height:22px;accent-color:#C6F36B"'+(e.jubilada?' checked':'')+'>Es jubilada</label>'+
@@ -634,7 +639,7 @@ function sheetEscala(){
   const E=getEsc();
   const num=(id,v)=>'<input id="'+id+'" inputmode="decimal" value="'+esc(String(v).replace('.',','))+'" style="min-height:44px;border-radius:12px;background:var(--surface);border:1px solid var(--line);padding:0 10px;font-size:15px;font-weight:600;color:var(--fg);width:100%">';
   let rows=CATS.map(c=>'<div class="card" style="display:flex;flex-direction:column;gap:8px;padding:12px"><b style="font-size:14px">'+c[1]+'</b><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;font-size:12px;color:var(--muted)"><label>Con retiro, hora'+num('es-'+c[0]+'-con-h',E.cat[c[0]].con[0])+'</label><label>Con retiro, mes'+num('es-'+c[0]+'-con-m',E.cat[c[0]].con[1])+'</label><label>Sin retiro, hora'+num('es-'+c[0]+'-sin-h',E.cat[c[0]].sin[0])+'</label><label>Sin retiro, mes'+num('es-'+c[0]+'-sin-m',E.cat[c[0]].sin[1])+'</label></div></div>').join('');
-  let aps=E.ap.map((a,i)=>'<div class="card" style="display:flex;flex-direction:column;gap:8px;padding:12px"><b style="font-size:14px">'+BRK[i]+'</b><div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;font-size:12px;color:var(--muted)"><label>Obra social'+num('ap-'+i+'-os',a.os)+'</label><label>ART'+num('ap-'+i+'-art',a.art)+'</label><label>SIPA'+num('ap-'+i+'-sipa',a.sipa)+'</label></div></div>').join('');
+  let aps=E.ap.map((a,i)=>'<div class="card" style="display:flex;flex-direction:column;gap:8px;padding:12px"><b style="font-size:14px">'+BRK[i]+'</b><div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;font-size:12px;color:var(--muted)"><label>Aporte obra social'+num('ap-'+i+'-os',a.os)+'</label><label>Contribución'+num('ap-'+i+'-art',a.art)+'</label><label>ART'+num('ap-'+i+'-sipa',a.sipa)+'</label></div></div>').join('');
   openSheet('Valores vigentes','<form data-form="escala">'+
    '<p class="note" style="margin:0">Cargué la escala de <b>'+esc(E.vigencia)+'</b> y los aportes de <b>'+esc(E.apVig)+'</b>. Cuando salga un aumento, cambiá los números acá. Los valores oficiales están en la página de ARCA de casas particulares.</p>'+
    '<a class="btn btn-line" href="https://www.afip.gob.ar/casasparticulares/" target="_blank" rel="noopener">Abrir página de ARCA</a>'+
@@ -661,7 +666,8 @@ function reciboHTML(r){
    '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:10px 0;border-bottom:1px solid #ccc"><div><div style="font-weight:800">Empleador</div><div>'+esc(er.nombre||'—')+'</div><div>CUIT: '+esc(fmtCuit(er.cuit)||'—')+'</div><div>'+esc(er.dom||'')+'</div></div><div><div style="font-weight:800">Trabajadora</div><div>'+esc(emp.nombre||'—')+'</div><div>CUIL: '+esc(fmtCuit(emp.cuil)||'—')+'</div><div>'+esc(catLabel(emp.categoria))+', '+(emp.modalidad==='sin'?'sin retiro':'con retiro')+'</div><div>Ingreso: '+(emp.ingreso?fmtDate(emp.ingreso):'—')+' · '+esc(emp.horasSem)+' h semanales</div></div></div>'+
    '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;margin-top:8px;font-variant-numeric:tabular-nums"><thead><tr style="background:#f1f1f1"><th style="'+td+';text-align:left">Concepto</th><th style="'+td+';text-align:right">Haberes</th><th style="'+td+';text-align:right">Descuentos</th></tr></thead><tbody>'+
    rows.map(x=>'<tr><td style="'+td+'">'+esc(x[0])+'</td><td style="'+td+';text-align:right">'+money(x[1])+'</td><td style="'+td+'"></td></tr>').join('')+
-   (r.desc?'<tr><td style="'+td+'">'+esc(r.descConcepto||'Descuento')+'</td><td style="'+td+'"></td><td style="'+td+';text-align:right">'+money(r.desc)+'</td></tr>':'')+
+   (r.aporte?'<tr><td style="'+td+'">Aporte obra social (Ley 25.239)</td><td style="'+td+'"></td><td style="'+td+';text-align:right">'+money(r.aporte)+'</td></tr>':'')+
+   ((r.otroDesc!=null?r.otroDesc:(r.aporte?0:r.desc))?'<tr><td style="'+td+'">'+esc(r.descConcepto||'Descuento')+'</td><td style="'+td+'"></td><td style="'+td+';text-align:right">'+money(r.otroDesc!=null?r.otroDesc:r.desc)+'</td></tr>':'')+
    '<tr style="font-weight:800"><td style="'+td+'">Totales</td><td style="'+td+';text-align:right">'+money(r.bruto)+'</td><td style="'+td+';text-align:right">'+money(r.desc)+'</td></tr></tbody></table></div>'+
    '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;padding:10px;background:#f1f1f1;border-radius:10px"><b>Neto a cobrar</b><b style="font-size:18px">'+money(r.neto)+'</b></div>'+
    '<div style="margin-top:6px">Son: '+esc(numLetras(r.neto))+'.</div>'+
@@ -725,11 +731,12 @@ document.addEventListener('submit',async e=>{
   const f=e.target;if(!f.dataset.form)return;e.preventDefault();
   const fd=Object.fromEntries(new FormData(f).entries());const id=f.dataset.id||null;const kind=f.dataset.form;
   if(kind==='empleada'){const cuil=fd.cuil.replace(/\D/g,'');
-    ls.set('empleada',{nombre:fd.nombre.trim(),cuil,categoria:fd.categoria,modalidad:fd.modalidad,forma:fd.forma,horasSem:Number(String(fd.horasSem).replace(',','.'))||0,ingreso:fd.ingreso,zona:!!fd.zona,jubilada:!!fd.jubilada});
+    ls.set('empleada',{nombre:fd.nombre.trim(),cuil,categoria:fd.categoria,modalidad:fd.modalidad,forma:fd.forma,horasSem:Number(String(fd.horasSem).replace(',','.'))||0,sueldo:parseMoney(fd.sueldo),ingreso:fd.ingreso,zona:!!fd.zona,jubilada:!!fd.jubilada});
     ls.set('empleador',{nombre:fd.erNombre.trim(),cuit:fd.erCuit.replace(/\D/g,''),dom:fd.erDom.trim()});
-    S.liqHoras=null;closeSheet();render();return toast('Datos guardados')}
+    S.liqHoras=null;S.liqRemu=null;closeSheet();render();return toast('Datos guardados')}
   if(kind==='escala'){saveEscalaFromSheet();closeSheet();render();return toast('Valores actualizados')}
-  if(kind==='liq'){const emp=ls.get('empleada',null);if(!emp)return;fd.sac=!!fd.sac;
+  if(kind==='liq'){const emp=ls.get('empleada',null);if(!emp)return;fd.sac=!!fd.sac;fd.aporte=!!fd.aporte;
+    if(emp.forma==='mes'&&!(parseMoney(fd.remu)>0))return toast('Poné la remuneración del mes');
     if(emp.forma!=='mes'&&!(Number(String(fd.horasMes).replace(',','.'))>0))return toast('Poné las horas trabajadas en el mes');
     const recs=ls.get('recibos',[]);const prev=recs.find(r=>r.periodo===fd.periodo);
     const c=calcSueldo(emp,fd,prev&&prev.id);const r=Object.assign(c,{id:prev?prev.id:uid(),periodo:fd.periodo,fechaPago:fd.fechaPago,sac:fd.sac?c.sac:0,emp,empleador:ls.get('empleador',{})||{},creado:Date.now()});
