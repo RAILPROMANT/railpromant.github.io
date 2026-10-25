@@ -120,6 +120,9 @@ label.f{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:70
 .tcheck:not(.on):hover{border-color:var(--lime)}
 .prio{display:inline-block;width:8px;height:8px;border-radius:99px;background:var(--orange);margin-right:7px;vertical-align:middle}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.lockscr{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px max(24px,env(safe-area-inset-right,0px)) 24px max(24px,env(safe-area-inset-left,0px))}
+.lockbox{width:100%;max-width:340px;display:flex;flex-direction:column;align-items:center;gap:16px}
+.lockico{width:72px;height:72px;border-radius:24px;background:var(--lime);color:var(--ink);display:flex;align-items:center;justify-content:center}
 .copybtn.ok{background:var(--lime);color:var(--ink)}
 .copybtn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .note{font-size:13px;color:var(--muted);line-height:1.5}
@@ -258,7 +261,7 @@ const gcalBtn=o=>(typeof NP!=='undefined'&&NP)?'':'<a class="btn btn-line" href=
 /* ---------- views ---------- */
 function vInicio(){
   const h=new Date().getHours();const saludo=h<12?'Buen día':h<20?'Buenas tardes':'Buenas noches';
-  let out='<header class="between"><div class="col"><span class="muted" style="font-size:13px;font-weight:600">'+esc(longDate(todayISO()))+'</span><h1>'+saludo+', Joaquín</h1></div><button class="ico" data-act="ajustes" aria-label="Ajustes y respaldo" style="border:0;background:var(--surface2);color:var(--lime);font-weight:800;font-size:17px">J</button></header>';
+  let out='<header class="between"><div class="col"><span class="muted" style="font-size:13px;font-weight:600">'+esc(longDate(todayISO()))+'</span><h1>'+saludo+', Joaquín</h1></div><div class="row" style="gap:8px"><button class="iconbtn" data-act="buscar" aria-label="Buscar" style="background:var(--surface2)"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg></button><button class="ico" data-act="ajustes" aria-label="Ajustes y respaldo" style="border:0;background:var(--surface2);color:var(--lime);font-weight:800;font-size:17px">J</button></div></header>';
   if(!S.ready)return out+'<div class="spin" role="status" aria-label="Cargando tus datos"></div>';
   out+=avisosCard();
   if(!isNative&&installEvt&&!isStandalone())out+='<button class="btn btn-lime" data-act="install" style="min-height:56px;font-size:16px">Instalar Ordenado en el celu</button>';
@@ -829,7 +832,7 @@ function sheetQuick(){
 /* ---------- app nativa: avisos, compartir, atrás ---------- */
 const CAP=window.capacitorExports||null;
 const isNative=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
-const NP=isNative&&CAP?{LN:CAP.registerPlugin('LocalNotifications'),FS:CAP.registerPlugin('Filesystem'),SH:CAP.registerPlugin('Share')}:null;
+const NP=isNative&&CAP?{LN:CAP.registerPlugin('LocalNotifications'),FS:CAP.registerPlugin('Filesystem'),SH:CAP.registerPlugin('Share'),BIO:CAP.registerPlugin('NativeBiometric')}:null;
 const AV_DEF={on:true,hora:'09:00',vencDias:2,fechaDias:3,eventoMin:30,resumen:true,resumenHora:'08:00',sueldo:true};
 const avCfg=()=>Object.assign({},AV_DEF,ls.get('avisos',{}));
 const AVISO_EV=[['-1','Sin aviso'],['0','A la hora'],['15','15 minutos antes'],['30','30 minutos antes'],['60','1 hora antes'],['120','2 horas antes'],['1440','1 día antes']];
@@ -922,7 +925,7 @@ function sheetAjustes(){
     (exactPerm&&exactPerm!=='granted'?'<span class="muted" style="font-size:13px">Para que suenen a la hora exacta, dale permiso de "Alarmas y recordatorios".</span><button type="button" class="btn btn-line" data-act="pedir-exacto">Permitir alarmas exactas</button>':'')+
     (notifPerm==='granted'?'<button type="button" class="btn btn-line" data-act="probar-aviso">Probar un aviso</button>':'')+'</div>'}
   else estado='<p class="note" style="margin:0">Las notificaciones funcionan en la app instalada desde el APK.</p>';
-  openSheet('Ajustes',nubeBox()+'<form data-form="ajustes">'+estado+
+  openSheet('Ajustes',nubeBox()+lockBox()+'<form data-form="ajustes">'+estado+
    '<h2 style="margin-top:4px">Avisos</h2>'+
    '<label class="row" style="gap:10px;font-size:14px;font-weight:600;min-height:44px"><input id="aj-on" type="checkbox" name="on" style="width:22px;height:22px;accent-color:#C6F36B"'+(c.on?' checked':'')+'>Mandarme avisos</label>'+
    '<label class="f">Hora de los avisos de vencimientos y fechas<input id="aj-hora" name="hora" type="time" value="'+esc(c.hora)+'"></label>'+
@@ -937,6 +940,76 @@ function sheetAjustes(){
    '<label class="option" style="justify-content:center"><input type="file" id="importFile" accept="application/json,.json,*/*"><b>Recuperar desde una copia</b></label>'+
    '<p class="note" style="margin:0;text-align:center">Ordenado '+esc(APP_VERSION)+'</p>');
 }
+
+/* ---------- buscador ---------- */
+const norm=s=>String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+function buscar(q){
+  const w=norm(q).trim().split(/\s+/).filter(Boolean);if(!w.length)return[];
+  const hit=(...f)=>{const h=norm(f.filter(x=>x!=null&&x!=='').join(' '));return w.every(x=>h.includes(x))};
+  const num=n=>n?[String(n),String(Math.round(n)),money(n)].join(' '):'';
+  const g=[];
+  const add=(titulo,color,items)=>{if(items.length)g.push({titulo,color,items})};
+  add('Tareas','var(--lime)',S.tareas.filter(x=>hit(x.titulo,x.nota)).sort((a,b)=>(a.hecha?1:0)-(b.hecha?1:0)).map(x=>({act:'tarea',id:x.id,t:x.titulo,m:(x.hecha?'Hecha':'Pendiente')+(x.fecha?' · '+fmtDate(x.fecha):'')})));
+  add('Agenda','var(--blue)',S.eventos.filter(x=>hit(x.titulo,x.nota)).sort((a,b)=>a.fecha<b.fecha?1:-1).map(x=>({act:'evento',id:x.id,t:x.titulo,m:fmtDate(x.fecha)+(x.hora?' · '+x.hora:'')+(x.repite&&x.repite!=='NO'?' · '+repLabel(x.repite).toLowerCase():'')})));
+  add('Vencimientos','var(--orange)',S.venc.filter(x=>hit(x.titulo,num(x.monto))).map(x=>({act:'venc',id:x.id,t:x.titulo,m:(x.pagado?'Pagado':'Vence el '+fmtDate(x.fecha))+(x.monto?' · '+money(x.monto):'')})));
+  add('Fechas importantes','var(--violet)',S.fechas.filter(x=>hit(x.titulo)).map(x=>({act:'fecha',id:x.id,t:x.titulo,m:x.dia+' de '+MESES[x.mes-1]})));
+  add('Tickets','var(--teal)',S.tickets.filter(x=>hit(x.razon,x.cuit,fmtCuit(x.cuit),x.rubro,num(x.monto),TIPOS[x.tipo],x.nro)).sort((a,b)=>a.fecha<b.fecha?1:-1).map(x=>({act:'ticket',id:x.id,t:x.razon||'CUIT '+fmtCuit(x.cuit),m:fmtDate(x.fecha)+' · '+money(x.monto)+' · '+x.rubro})));
+  add('Recibos de sueldo','#D6DAE0',ls.get('recibos',[]).filter(r=>hit('recibo sueldo',r.emp&&r.emp.nombre,MESES[Number(r.periodo.slice(5))-1],r.periodo.slice(0,4),num(r.neto))).sort((a,b)=>a.periodo<b.periodo?1:-1).map(r=>({act:'recibo',id:r.id,t:'Recibo '+MESES[Number(r.periodo.slice(5))-1]+' '+r.periodo.slice(0,4),m:'Neto '+money(r.neto)})));
+  return g;
+}
+function busqResultados(q){
+  if(!norm(q).trim())return '<p class="note" style="margin:0">Buscá en todo: tareas, agenda, vencimientos, fechas, tickets y recibos. Podés buscar por nombre, comercio, CUIT o monto.</p>';
+  const g=buscar(q);if(!g.length)return '<div class="empty">No encontré nada con "'+esc(q)+'".</div>';
+  return g.map(x=>'<section class="list" style="gap:6px"><h2 class="row" style="gap:8px;font-size:14px"><span class="sw" style="background:'+x.color+';border-radius:99px" aria-hidden="true"></span>'+x.titulo+' <span class="muted" style="font-weight:600">'+x.items.length+'</span></h2>'+
+    x.items.slice(0,8).map(i=>'<button class="item" style="border:0;text-align:left;width:100%;padding:10px 14px" data-act="'+i.act+'" data-id="'+i.id+'"><span class="col" style="flex:1"><span style="font-weight:700" class="ellip">'+esc(i.t)+'</span><span class="muted ellip" style="font-size:12px">'+esc(i.m)+'</span></span></button>').join('')+
+    (x.items.length>8?'<p class="note" style="margin:0">Y '+(x.items.length-8)+' más. Escribí algo más específico.</p>':'')+'</section>').join('');
+}
+function sheetBuscar(){
+  openSheet('Buscar','<label class="f"><span class="sr">Buscar</span><input id="busq" type="search" placeholder="Ej: cochera, farmacia, 45000" autocomplete="off" value="'+esc(S.busq||'')+'"></label><div id="busqRes" class="list" style="gap:14px">'+busqResultados(S.busq||'')+'</div>');
+  const i=document.getElementById('busq');if(i){i.focus();i.select()}
+}
+document.addEventListener('input',e=>{if(e.target&&e.target.id==='busq'){S.busq=e.target.value;const r=document.getElementById('busqRes');if(r)r.innerHTML=busqResultados(S.busq)}});
+
+/* ---------- bloqueo con huella ---------- */
+const lockCfg=()=>Object.assign({on:false,mins:1},ls.get('lock',{}));
+let bioOk=false,locked=false,authBusy=false,hiddenAt=0;
+async function bioDisponible(){if(!NP||!NP.BIO)return false;try{const r=await NP.BIO.isAvailable({useFallback:true});return !!(r&&r.isAvailable)}catch(e){return false}}
+async function verificar(motivo){
+  if(!NP||!NP.BIO)return false;authBusy=true;
+  try{await NP.BIO.verifyIdentity({reason:motivo||'Desbloqueá Ordenado',title:'Ordenado',subtitle:motivo||'Usá tu huella o el bloqueo del celu',allowedBiometryTypes:[6,7],maxAttempts:5});return true}
+  catch(e){return false}
+  finally{setTimeout(()=>{authBusy=false;hiddenAt=0},800)}
+}
+function showLock(){
+  if(locked)return;locked=true;
+  const d=document.createElement('div');d.id='lockScr';d.className='lockscr';
+  d.innerHTML='<div class="lockbox"><span class="lockico" aria-hidden="true"><svg viewBox="0 0 24 24" width="34" height="34" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg></span><h1 style="font-size:24px;text-align:center">Ordenado está bloqueada</h1><p class="note" style="margin:0;text-align:center">Usá tu huella o el bloqueo de pantalla del celu.</p><button class="btn btn-lime" id="unlockBtn" style="min-height:56px;font-size:16px;width:100%">Desbloquear</button></div>';
+  document.body.appendChild(d);
+  d.querySelector('#unlockBtn').addEventListener('click',desbloquear);
+  setTimeout(desbloquear,350);
+}
+async function desbloquear(){if(authBusy)return;const ok=await verificar();if(ok){locked=false;const d=document.getElementById('lockScr');if(d)d.remove()}}
+async function initLock(){
+  if(!NP)return;bioOk=await bioDisponible();
+  if(lockCfg().on&&bioOk)showLock();
+  document.addEventListener('visibilitychange',()=>{
+    if(!lockCfg().on||!bioOk||authBusy)return;
+    if(document.visibilityState==='hidden'){hiddenAt=Date.now();return}
+    if(hiddenAt&&Date.now()-hiddenAt>=lockCfg().mins*60000)showLock();hiddenAt=0;
+  });
+}
+async function toggleLock(on){
+  if(on){if(!bioOk){toast('Primero configurá una huella o un PIN en el celu');return false}
+    const ok=await verificar('Confirmá para activar el bloqueo');if(!ok){toast('No se activó el bloqueo');return false}}
+  ls.set('lock',Object.assign(lockCfg(),{on:!!on}));toast(on?'Bloqueo con huella activado':'Bloqueo desactivado');return true;
+}
+function lockBox(){
+  if(!NP)return '';const c=lockCfg();
+  if(!bioOk)return '<div class="card"><b>Bloqueo con huella</b><p class="note" style="margin:6px 0 0">Tu celu no tiene huella ni bloqueo de pantalla configurados.</p></div>';
+  return '<div class="card" style="display:flex;flex-direction:column;gap:10px"><div class="between"><b>Bloqueo con huella</b><span style="font-weight:800;font-size:13px;color:'+(c.on?'var(--lime)':'var(--muted)')+'">'+(c.on?'Activado':'Desactivado')+'</span></div><span class="muted" style="font-size:13px">Pide tu huella (o el PIN del celu) para abrir la app.</span>'+
+   (c.on?'<label class="f">Bloquear cuando la dejo de usar por<select id="lk-mins">'+opts([['1','1 minuto'],['5','5 minutos'],['15','15 minutos'],['60','1 hora']],c.mins)+'</select></label><button type="button" class="btn btn-line" data-act="lock-off">Desactivar bloqueo</button>':'<button type="button" class="btn btn-lime" data-act="lock-on">Activar bloqueo con huella</button>')+'</div>';
+}
+document.addEventListener('change',e=>{if(e.target&&e.target.id==='lk-mins'){ls.set('lock',Object.assign(lockCfg(),{mins:Number(e.target.value)}));toast('Guardado')}});
 
 /* ---------- recibo en PDF ---------- */
 function reciboPDF(r){
@@ -997,6 +1070,8 @@ document.addEventListener('click',async e=>{
   if(act==='close'){if(e.target===a||a.classList.contains('iconbtn'))closeSheet();return}
   if(act==='scan')return sheetScan();
   if(act==='quick')return sheetQuick();
+  if(act==='buscar')return sheetBuscar();
+  if(act==='lock-on'||act==='lock-off'){return toggleLock(act==='lock-on').then(()=>{if(sheetOpen)sheetAjustes()})}
   if(act==='tarea')return sheetTarea(id);
   if(act==='tfilter'){S.tFilter=a.dataset.f;return render()}
   if(act==='tquick'){const el=document.getElementById('ta-fecha');if(el)el.value=a.dataset.d===''?'':addDaysISO(todayISO(),Number(a.dataset.d));return}
@@ -1079,6 +1154,7 @@ render();
 try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
 if(!isNative&&'serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})})}
 initNative();
+initLock();
 initCloud();
 window.addEventListener('online',()=>render());window.addEventListener('offline',()=>render());
 window.__ord={buildNotifs,S,reciboPDF,calcSueldo};
