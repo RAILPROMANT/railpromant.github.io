@@ -965,10 +965,18 @@ function parseFrase(raw,hoyD){
   const cut=[];const take=(re)=>{const m=re.exec(t);if(m){const a=m.index,b=a+m[0].length;cut.push([a,b]);t=t.slice(0,a)+' '.repeat(b-a)+t.slice(b)}return m};
   const r={tipo:null,titulo:'',fecha:'',hora:'',monto:null,repite:'NO',dia:null,mes:null,consulta:null,texto:orig};
   // consultas
-  if(/^\s*(que|cuales|cuantas?|cuanto|tengo|hay|decime|contame|leeme|mostrame)\b/.test(t)&&/\b(tengo|hay|pendiente|pendientes|vence|vencen|vencimiento|falta|debo|agenda|resumen|hoy|manana|semana|tareas?)\b/.test(t)&&!/^\s*(anota|anotame|agenda|agendame|recorda|recordame|acordame|agrega|agregame)\b/.test(t)){
-    r.tipo='consulta';
-    r.consulta=/\b(vence|vencen|vencimientos?|pagar|pagos|debo)\b/.test(t)?'vencimientos':/\bpasado manana\b/.test(t)?'pasado':/\bmanana\b/.test(t)?'manana':/\bsemana\b/.test(t)?'semana':/\b(pendientes?|tareas?|falta|hacer)\b/.test(t)?'pendientes':'hoy';
-    return r;
+  {const q=t.replace(/\s+/g,' ').trim();
+   const VZ_STOP=new Set('recordame recorda acordame acorda decime deci contame conta sabes sabe me podes podrias por favor cuando cuanto cuanta cuantos cuantas a que hora dia fecha fechas tengo tenemos tenes hay que de del al la el lo los las mi mis tu un una uno es son era esta estan vence vencen vencimiento vencimientos pagar pago pagos pague pagado sale cuesta debo falta faltan para hasta proximo proxima siguiente cumple cumpleanos cuantos anos y o con en se ser ya todavia algo'.split(' '));
+   const GEN=/^(hoy|manana|pasado|semana|esta|pendiente|pendientes|tareas?|agenda|resumen|nada)$/;
+   const interrog=/\b(cuando|cuanto|cuanta|cuantos|cuantas)\b/.test(q)||/\ba que hora\b|\bque dia\b|\bque fecha\b/.test(q)||/\bque (tengo|vence|vencen|hay|me falta|debo)\b(?! que\b)/.test(q)||/^(tengo|hay) (algo|alguna|algun|que hacer)\b/.test(q)||/^(que|cuales|decime|contame|leeme|mostrame)\b/.test(q)&&/\b(tengo|hay|pendientes?|vence|vencen|vencimientos?|falta|debo|agenda|resumen|hoy|manana|semana|tareas?)\b/.test(q);
+   if(interrog&&!/^(anota|anotame|agenda|agendame|agrega|agregame|crea|pone|poneme)\b/.test(q)){
+     r.tipo='consulta';
+     const terms=q.split(' ').filter(w=>w.length>=3&&!VZ_STOP.has(w)&&!GEN.test(w)&&!/^\d+$/.test(w));
+     if(terms.length&&/\b(cuando|cuanto|cuanta|que dia|que fecha|a que hora)\b/.test(q)){r.consulta='buscar';r.term=terms.join(' ');return r}
+     r.consulta=/\b(vence|vencen|vencimientos?|pagar|pagos|debo)\b/.test(q)?'vencimientos':/\bpasado manana\b/.test(q)?'pasado':/\bmanana\b/.test(q)?'manana':/\bsemana\b/.test(q)?'semana':/\b(pendientes?|tareas?|falta|hacer)\b/.test(q)?'pendientes':'hoy';
+     if(terms.length&&r.consulta==='hoy'&&!/\bhoy\b/.test(q)){r.consulta='buscar';r.term=terms.join(' ')}
+     return r;
+   }
   }
   // repetición
   let m;
@@ -1066,7 +1074,7 @@ async function vozEscuchar(){
 }
 function procesarFrase(txt){
   const r=parseFrase(txt);
-  if(r.tipo==='consulta')return responder(r.consulta);
+  if(r.tipo==='consulta')return responder(r.consulta,r.term);
   vzPend=r;sheetConfirmar();
 }
 function resumenParsed(r){
@@ -1109,8 +1117,29 @@ function itemsDia(s,conAtrasadas){
   S.tareas.filter(x=>!x.hecha&&(x.fecha===s||(conAtrasadas&&x.fecha&&x.fecha<s))).sort(tareaOrd).forEach(x=>it.push({c:'var(--lime)',t:x.titulo,m:x.fecha<s?'tarea atrasada':'tarea',voz:'tarea: '+x.titulo,act:'tarea',id:x.id}));
   return it;
 }
-function responder(q){
-  const t=todayISO();let titulo,items,intro,extra='';
+function proximaVez(e){const t=todayISO();for(let i=0;i<400;i++){const s=addDaysISO(t,i);if(occursOn(e,s))return s}return null}
+function responderBuscar(term){
+  const w=norm(term).split(/\s+/).filter(Boolean);
+  const sc=(...f)=>{const h=norm(f.join(' '));return w.filter(x=>h.includes(x)).length};
+  const cand=[];const t=todayISO();
+  S.venc.forEach(v=>{const p=sc(v.titulo);if(p)cand.push({p:p+(v.pagado?0:.5),act:'venc',id:v.id,c:'var(--orange)',t:v.titulo,
+    m:v.pagado?'Pagado':cuando(daysUntil(v.fecha))+' · '+longDate(v.fecha)+(v.monto?' · '+money(v.monto):''),
+    voz:v.pagado?v.titulo+' ya está pagado':v.titulo+(daysUntil(v.fecha)<0?' venció el ':' vence el ')+longDate(v.fecha)+', '+cuando(daysUntil(v.fecha)).toLowerCase()+(v.monto?', son '+Math.round(v.monto)+' pesos':'')+(v.repite==='MONTHLY'?'. Se repite todos los meses':v.repite==='YEARLY'?'. Se repite todos los años':'')})});
+  S.eventos.forEach(e=>{const p=sc(e.titulo,e.nota);if(!p)return;const nx=proximaVez(e);cand.push({p:p+(nx?.4:0),act:'evento',id:e.id,c:'var(--blue)',t:e.titulo,
+    m:nx?longDate(nx)+(e.hora?' · '+e.hora:''):'Ya pasó',voz:nx?e.titulo+': '+(nx===t?'hoy':daysUntil(nx)===1?'mañana':'el '+longDate(nx))+(e.hora?' a las '+e.hora:''):e.titulo+' ya pasó, fue el '+longDate(e.fecha)})});
+  S.fechas.forEach(f=>{const p=sc(f.titulo);if(!p)return;const pr=iso(nextFecha(f));const n=daysUntil(pr);cand.push({p:p+.3,act:'fecha',id:f.id,c:'var(--violet)',t:f.titulo,
+    m:longDate(pr)+' · '+(n===0?'hoy':'faltan '+n+' días'),voz:f.titulo+': '+(n===0?'es hoy':'es el '+f.dia+' de '+MESES[f.mes-1]+', faltan '+n+' días')+(f.anio?'. Cumple '+(parseISO(pr).getFullYear()-f.anio):'')})});
+  S.tareas.forEach(x=>{const p=sc(x.titulo,x.nota);if(p)cand.push({p:p+(x.hecha?0:.2),act:'tarea',id:x.id,c:'var(--lime)',t:x.titulo,
+    m:x.hecha?'Hecha':x.fecha?(daysUntil(x.fecha)<0?'Atrasada · ':'')+longDate(x.fecha):'Sin fecha',voz:'La tarea '+x.titulo+(x.hecha?' ya está hecha':x.fecha?' es para el '+longDate(x.fecha):' no tiene fecha')})});
+  S.tickets.forEach(k=>{const p=sc(k.razon,k.rubro);if(p)cand.push({p:p-.2,act:'ticket',id:k.id,c:'var(--teal)',t:k.razon||'Ticket',m:fmtDate(k.fecha)+' · '+money(k.monto),voz:'Ticket de '+(k.razon||'comercio')+' del '+fmtDate(k.fecha)+' por '+Math.round(k.monto)+' pesos'})});
+  cand.sort((a,b)=>b.p-a.p);const best=cand.length?cand[0].p:0;const items=cand.filter(x=>x.p>=best-0.6).slice(0,5);
+  const intro=items.length?(items.length===1?'Encontré esto':'Encontré '+items.length+' cosas'):'No encontré nada sobre "'+term+'"';
+  const voz=items.length?items.map(x=>x.voz).join('. ')+'.':'No encontré nada sobre '+term+'. Fijate si lo anotaste con otro nombre.';
+  return {titulo:'Sobre "'+term+'"',items,intro,voz};
+}
+function responder(q,term){
+  const t=todayISO();let titulo,items,intro,extra='',vozFija=null;
+  if(q==='buscar'){const r=responderBuscar(term||'');titulo=r.titulo;items=r.items;intro=r.intro;vozFija=r.voz}else
   if(q==='hoy'||q==='manana'||q==='pasado'){const s=q==='hoy'?t:addDaysISO(t,q==='manana'?1:2);items=itemsDia(s,q==='hoy');const cuando=q==='hoy'?'Hoy':q==='manana'?'Mañana':'Pasado mañana';titulo=cuando;
     intro=items.length?cuando+' tenés '+items.length+(items.length===1?' cosa':' cosas'):cuando+' no tenés nada anotado';
     if(q==='hoy'){const sf=S.tareas.filter(x=>!x.hecha&&!x.fecha).length;if(sf)extra='Además tenés '+sf+(sf===1?' tarea sin fecha':' tareas sin fecha')+'.'}}
@@ -1123,7 +1152,7 @@ function responder(q){
     items=pend.map(x=>{const n=x.fecha?daysUntil(x.fecha):null;return {c:n!=null&&n<0?'var(--red)':'var(--lime)',t:x.titulo,m:n==null?'sin fecha':n<0?'atrasada':n===0?'hoy':n===1?'mañana':longDate(x.fecha),voz:x.titulo+(n!=null&&n<0?', atrasada':n===0?', para hoy':''),act:'tarea',id:x.id}});
     const venc=pendVenc().filter(v=>daysUntil(v.fecha)<0);venc.forEach(v=>items.unshift({c:'var(--red)',t:v.titulo,m:'pago vencido'+(v.monto?' · '+money(v.monto):''),voz:'pago vencido: '+v.titulo,act:'venc',id:v.id}));
     titulo='Pendientes';intro=items.length?'Tenés '+items.length+(items.length===1?' pendiente':' pendientes'):'No tenés nada pendiente. ¡Bien ahí!'}
-  const voz=intro+(items.length?': '+items.slice(0,6).map(x=>x.voz).join('. ')+(items.length>6?'. Y '+(items.length-6)+' más':''):'')+'.'+(extra?' '+extra:'');
+  const voz=vozFija||(intro+(items.length?': '+items.slice(0,6).map(x=>x.voz).join('. ')+(items.length>6?'. Y '+(items.length-6)+' más':''):'')+'.'+(extra?' '+extra:''));
   openSheet(titulo,'<div class="between"><p style="margin:0;font-weight:700">'+esc(intro)+'</p><button class="iconbtn" data-act="vz-repetir" aria-label="Escuchar de nuevo">'+ICON.bell.replace(/<path[^>]*\/>/g,'').replace('</svg>','<path d="M4 9.5v5h3.5L12 19V5L7.5 9.5z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>')+'</button></div>'+
    (items.length?'<div class="list" style="gap:8px">'+items.map(x=>'<button class="item" style="border:0;text-align:left;width:100%" data-act="'+x.act+'" data-id="'+x.id+'"><span style="width:4px;align-self:stretch;border-radius:4px;background:'+x.c+'" aria-hidden="true"></span><span class="col" style="flex:1"><span style="font-weight:700" class="ellip">'+esc(x.t)+'</span><span class="muted" style="font-size:12px">'+esc(x.m)+'</span></span></button>').join('')+'</div>':'')+
    (extra?'<p class="note" style="margin:0">'+esc(extra)+'</p>':'')+
@@ -1334,7 +1363,7 @@ document.addEventListener('submit',async e=>{
   if(kind==='evento'){k='eventos';data={titulo:fd.titulo.trim(),fecha:fd.fecha,hora:fd.hora||'',repite:fd.repite||'NO',aviso:Number(fd.aviso),nota:fd.nota.trim()};msg='Recordatorio guardado'}
   if(kind==='venc'){k='venc';data={titulo:fd.titulo.trim(),fecha:fd.fecha,monto:parseMoney(fd.monto),repite:fd.repite};if(!id)data.pagado=false;msg='Vencimiento guardado'}
   if(kind==='voztxt'){const tx=(fd.texto||'').trim();if(tx)procesarFrase(tx);return}
-  if(kind==='qtarea'){const ti=(fd.titulo||'').trim();if(!ti)return;{const pr=parseFrase(ti);if(pr.tipo==='consulta')return responder(pr.consulta);if(pr.tipo!=='tarea'||pr.fecha){vzPend=pr;return sheetConfirmar()}}const ok=await safe(()=>store.add('tareas',{titulo:ti,fecha:'',hora:'',prioridad:'normal',nota:'',hecha:false}),'Tarea anotada');if(ok){if(sheetOpen)closeSheet();const el=document.getElementById('qt-in');if(el){el.value='';el.focus()}}return}
+  if(kind==='qtarea'){const ti=(fd.titulo||'').trim();if(!ti)return;{const pr=parseFrase(ti);if(pr.tipo==='consulta')return responder(pr.consulta,pr.term);if(pr.tipo!=='tarea'||pr.fecha){vzPend=pr;return sheetConfirmar()}}const ok=await safe(()=>store.add('tareas',{titulo:ti,fecha:'',hora:'',prioridad:'normal',nota:'',hecha:false}),'Tarea anotada');if(ok){if(sheetOpen)closeSheet();const el=document.getElementById('qt-in');if(el){el.value='';el.focus()}}return}
   if(kind==='tarea'){k='tareas';data={titulo:fd.titulo.trim(),fecha:fd.fecha||'',hora:fd.fecha?(fd.hora||''):'',prioridad:fd.prioridad||'normal',nota:(fd.nota||'').trim()};if(!id)data.hecha=false;msg='Tarea guardada'}
   if(kind==='fecha'){k='fechas';const d=parseISO(fd.fecha);data={titulo:fd.titulo.trim(),dia:d.getDate(),mes:d.getMonth()+1,anio:fd.conAnio?d.getFullYear():null};msg='Fecha guardada'}
   const ok=await safe(()=>id?store.update(k,id,data):store.add(k,data),msg);
