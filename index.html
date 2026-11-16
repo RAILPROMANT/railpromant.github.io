@@ -261,7 +261,7 @@ const gcalBtn=o=>(typeof NP!=='undefined'&&NP)?'':'<a class="btn btn-line" href=
 /* ---------- views ---------- */
 function vInicio(){
   const h=new Date().getHours();const saludo=h<12?'Buen día':h<20?'Buenas tardes':'Buenas noches';
-  let out='<header class="between"><div class="col"><span class="muted" style="font-size:13px;font-weight:600">'+esc(longDate(todayISO()))+'</span><h1>'+saludo+', Joaquín</h1></div><div class="row" style="gap:8px"><button class="iconbtn" data-act="buscar" aria-label="Buscar" style="background:var(--surface2)"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg></button><button class="ico" data-act="ajustes" aria-label="Ajustes y respaldo" style="border:0;background:var(--surface2);color:var(--lime);font-weight:800;font-size:17px">J</button></div></header>';
+  let out='<header class="between"><div class="col"><span class="muted" style="font-size:13px;font-weight:600">'+esc(longDate(todayISO()))+'</span><h1>'+saludo+', Joaquín</h1></div><div class="row" style="gap:8px"><button class="iconbtn" data-act="voz" aria-label="Hablar" style="background:var(--lime);color:var(--ink)">'+micSvg+'</button><button class="iconbtn" data-act="buscar" aria-label="Buscar" style="background:var(--surface2)"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg></button><button class="ico" data-act="ajustes" aria-label="Ajustes y respaldo" style="border:0;background:var(--surface2);color:var(--lime);font-weight:800;font-size:17px">J</button></div></header>';
   if(!S.ready)return out+'<div class="spin" role="status" aria-label="Cargando tus datos"></div>';
   out+=avisosCard();
   if(!isNative&&installEvt&&!isStandalone())out+='<button class="btn btn-lime" data-act="install" style="min-height:56px;font-size:16px">Instalar Ordenado en el celu</button>';
@@ -422,8 +422,8 @@ function sheetTicket(id){
    '<button class="btn '+(t.cargado?'btn-ghost':'btn-lime')+'" data-act="tktoggle" data-id="'+t.id+'" data-close="1">'+(t.cargado?'Marcar como pendiente':ICON.check+'Ya lo cargué en ARCA')+'</button>'+
    '<div class="f2"><button class="btn btn-line" data-act="tkedit" data-id="'+t.id+'">Editar</button><button class="btn btn-danger" data-act="del" data-k="tickets" data-id="'+t.id+'">Borrar</button></div>');
 }
-function sheetEvento(id){
-  const e=id?S.eventos.find(x=>x.id===id):{fecha:S.selDay};if(!e)return;
+function sheetEvento(id,preset){
+  const e=id?S.eventos.find(x=>x.id===id):Object.assign({fecha:S.selDay},preset||{});if(!e)return;
   openSheet(id?'Editar recordatorio':'Nuevo recordatorio','<form data-form="evento" data-id="'+(id||'')+'">'+
    '<label class="f">Qué<input id="ev-titulo" name="titulo" required value="'+esc(e.titulo||'')+'" placeholder="Ej: Reunión con cliente"></label>'+
    '<div class="f2"><label class="f">Día<input id="ev-fecha" name="fecha" type="date" required value="'+esc(e.fecha||todayISO())+'"></label><label class="f">Hora (opcional)<input id="ev-hora" name="hora" type="time" value="'+esc(e.hora||'')+'"></label></div>'+
@@ -432,16 +432,16 @@ function sheetEvento(id){
    '<button class="btn" style="background:var(--blue);color:var(--bg)" type="submit">Guardar</button>'+(id?gcalBtn({titulo:e.titulo,fecha:e.fecha,hora:e.hora,detalle:e.nota,recur:e.repite&&e.repite!=='NO'?e.repite:null}):'')+delBtn('eventos',id)+'</form>'+
    (id||NP?'':'<p class="note" style="margin:0">Después de guardarlo vas a poder mandarlo a Google Calendar para que te suene la alerta.</p>'));
 }
-function sheetVenc(id){
-  const v=id?S.venc.find(x=>x.id===id):{repite:'MONTHLY'};if(!v)return;
+function sheetVenc(id,preset){
+  const v=id?S.venc.find(x=>x.id===id):Object.assign({repite:'MONTHLY'},preset||{});if(!v)return;
   openSheet(id?'Editar vencimiento':'Nuevo vencimiento','<form data-form="venc" data-id="'+(id||'')+'">'+
    '<label class="f">Qué vence<input id="vc-titulo" name="titulo" required value="'+esc(v.titulo||'')+'" placeholder="Ej: Monotributo"></label>'+
    '<div class="f2"><label class="f">Fecha<input id="vc-fecha" name="fecha" type="date" required value="'+esc(v.fecha||'')+'"></label><label class="f">Monto (opcional)<input id="vc-monto" name="monto" inputmode="decimal" value="'+(v.monto!=null?esc(String(v.monto).replace('.',',')):'')+'"></label></div>'+
    '<label class="f">Se repite<select id="vc-repite" name="repite">'+opts([['MONTHLY','Todos los meses'],['YEARLY','Una vez por año'],['NO','Una sola vez']],v.repite||'NO')+'</select></label>'+
    '<button class="btn" style="background:var(--orange);color:var(--ink)" type="submit">Guardar</button>'+(id?gcalBtn({titulo:'Vence: '+v.titulo,fecha:v.fecha,recur:v.repite==='NO'?null:v.repite}):'')+delBtn('venc',id)+'</form>');
 }
-function sheetFecha(id){
-  const f=id?S.fechas.find(x=>x.id===id):{};if(!f)return;
+function sheetFecha(id,preset){
+  const f=id?S.fechas.find(x=>x.id===id):Object.assign({},preset||{});if(!f)return;
   const val=f.mes?((f.anio||new Date().getFullYear())+'-'+pad(f.mes)+'-'+pad(f.dia)):'';
   const prox=f.mes?iso(nextFecha(f)):null;
   openSheet(id?'Editar fecha':'Nueva fecha','<form data-form="fecha" data-id="'+(id||'')+'">'+
@@ -825,7 +825,7 @@ function sheetQuick(){
     ['venc','Vencimiento','Un pago: cochera, luz, impuestos','var(--orange)','rgba(255,176,102,.14)',ICON.bell],
     ['fecha','Fecha importante','Cumpleaños, aniversario','var(--violet)','rgba(196,167,255,.14)',ICON.gift],
     ['scan','Ticket','Escanear para SiRADIG','var(--teal)','rgba(127,217,192,.14)',ICON.receipt]];
-  openSheet('Agregar','<form data-form="qtarea" style="flex-direction:row;align-items:flex-end;gap:8px"><label class="f" style="flex:1;min-width:0"><span class="sr">Tarea rápida</span><input id="qs-in" name="titulo" placeholder="Tarea rápida: escribí y Enter" autocomplete="off"></label><button class="btn btn-lime" type="submit" aria-label="Agregar tarea" style="min-width:50px;padding:0">'+ICON.plus+'</button></form>'+
+  openSheet('Agregar','<button class="btn btn-lime" data-act="voz" style="min-height:56px;font-size:16px">'+micSvg.replace('<svg','<svg width="22" height="22" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round"')+'Decilo por voz</button><form data-form="qtarea" style="flex-direction:row;align-items:flex-end;gap:8px"><label class="f" style="flex:1;min-width:0"><span class="sr">Tarea rápida</span><input id="qs-in" name="titulo" placeholder="Tarea rápida: escribí y Enter" autocomplete="off"></label><button class="btn btn-lime" type="submit" aria-label="Agregar tarea" style="min-width:50px;padding:0">'+ICON.plus+'</button></form>'+
    '<div class="list" style="gap:8px">'+it.map(x=>'<button class="option" data-act="'+x[0]+'" style="padding:12px 14px"><span class="ico" style="background:'+x[4]+';color:'+x[3]+'">'+x[5]+'</span><span class="col"><b style="font-size:16px">'+x[1]+'</b><span class="muted" style="font-size:13px">'+x[2]+'</span></span></button>').join('')+'</div>');
 }
 
@@ -833,7 +833,7 @@ function sheetQuick(){
 const CAP=window.capacitorExports||null;
 const isNative=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
 const NP=isNative&&CAP?{LN:CAP.registerPlugin('LocalNotifications'),FS:CAP.registerPlugin('Filesystem'),SH:CAP.registerPlugin('Share'),BIO:CAP.registerPlugin('NativeBiometric')}:null;
-const AV_DEF={on:true,hora:'09:00',vencDias:2,fechaDias:3,eventoMin:30,resumen:true,resumenHora:'08:00',sueldo:true};
+const AV_DEF={on:true,hora:'09:00',vencDias:2,fechaDias:3,eventoMin:30,resumen:true,resumenHora:'08:00',sueldo:true,pend:true,pendHora:'19:00'};
 const avCfg=()=>Object.assign({},AV_DEF,ls.get('avisos',{}));
 const AVISO_EV=[['-1','Sin aviso'],['0','A la hora'],['15','15 minutos antes'],['30','30 minutos antes'],['60','1 hora antes'],['120','2 horas antes'],['1440','1 día antes']];
 let notifPerm=null,exactPerm=null;
@@ -852,7 +852,7 @@ function buildNotifs(){
       if(e.nota)body+=' · '+e.nota;push(at,e.titulo,body,'agenda',s)}});
   // vencimientos
   S.venc.filter(v=>!v.pagado&&v.fecha).forEach(v=>{const m=v.monto?' · '+money(v.monto):'';
-    if(v.fecha<t0){push(atTime(addDaysISO(t0,1),cfg.hora),'Vencido: '+v.titulo,'Venció el '+fmtDate(v.fecha)+m+'. Tocá para marcarlo pagado.','avisos');return}
+    if(v.fecha<t0){for(let i=0;i<=6;i++)push(atTime(addDaysISO(t0,i),cfg.hora),'Vencido: '+v.titulo,'Venció el '+fmtDate(v.fecha)+m+'. Tocá para marcarlo pagado.','avisos');return}
     if(cfg.vencDias>0)push(atTime(addDaysISO(v.fecha,-cfg.vencDias),cfg.hora),'Vence en '+cfg.vencDias+(cfg.vencDias===1?' día':' días')+': '+v.titulo,'El '+fmtDate(v.fecha)+m,'avisos');
     push(atTime(v.fecha,cfg.hora),'Vence hoy: '+v.titulo,(v.monto?money(v.monto)+'. ':'')+'Cuando lo pagues, tocá "Ya pagué".','avisos')});
   // fechas importantes
@@ -868,6 +868,10 @@ function buildNotifs(){
   // tareas con fecha
   S.tareas.filter(x=>!x.hecha&&x.fecha&&x.fecha>=t0).forEach(x=>push(atTime(x.fecha,x.hora||cfg.hora),'Tarea: '+x.titulo,x.hora?'Hoy a las '+x.hora:(x.nota||'Para hoy'),'tareas'));
   // resumen diario
+  if(cfg.pend){for(let i=0;i<=6;i++){const s=addDaysISO(t0,i);
+    const tp=S.tareas.filter(x=>!x.hecha&&(!x.fecha||x.fecha<=s)).sort(tareaOrd);const vv=S.venc.filter(v=>!v.pagado&&v.fecha&&v.fecha<s);
+    const n=tp.length+vv.length;if(!n)continue;
+    push(atTime(s,cfg.pendHora),'Tenés '+n+(n===1?' pendiente':' pendientes'),vv.map(v=>'pagar '+v.titulo).concat(tp.map(x=>x.titulo)).slice(0,5).join(' · ')+(n>5?' y más':''),'tareas')}}
   if(cfg.resumen){for(let i=0;i<=14;i++){const s=addDaysISO(t0,i);
     const it=[];S.eventos.filter(e=>occursOn(e,s)).sort((a,b)=>(a.hora||'')<(b.hora||'')?-1:1).forEach(e=>it.push((e.hora?e.hora+' ':'')+e.titulo));
     S.venc.filter(v=>!v.pagado&&v.fecha===s).forEach(v=>it.push('vence '+v.titulo));
@@ -933,12 +937,198 @@ function sheetAjustes(){
    '<label class="f">Aviso por defecto para eventos de la agenda'+sel('aj-em','eventoMin',AVISO_EV,c.eventoMin)+'</label>'+
    '<label class="row" style="gap:10px;font-size:14px;font-weight:600;min-height:44px"><input id="aj-res" type="checkbox" name="resumen" style="width:22px;height:22px;accent-color:#C6F36B"'+(c.resumen?' checked':'')+'>Resumen de cada mañana</label>'+
    '<label class="f">Hora del resumen<input id="aj-rh" name="resumenHora" type="time" value="'+esc(c.resumenHora)+'"></label>'+
+   '<label class="row" style="gap:10px;font-size:14px;font-weight:600;min-height:44px"><input id="aj-pe" type="checkbox" name="pend" style="width:22px;height:22px;accent-color:#C6F36B"'+(c.pend?' checked':'')+'>Recordarme los pendientes todos los días</label>'+
+   '<label class="f">Hora del recordatorio de pendientes<input id="aj-ph" name="pendHora" type="time" value="'+esc(c.pendHora)+'"></label>'+
    '<label class="row" style="gap:10px;font-size:14px;font-weight:600;min-height:44px"><input id="aj-su" type="checkbox" name="sueldo" style="width:22px;height:22px;accent-color:#C6F36B"'+(c.sueldo?' checked':'')+'>Recordarme el sueldo y el VEP de la empleada</label>'+
    '<button class="btn btn-lime" type="submit">Guardar ajustes</button></form>'+
    '<h2>Respaldo</h2><div class="card"><div class="muted" style="font-size:13px">'+S.tickets.length+' tickets · '+S.tareas.length+' tareas · '+S.eventos.length+' eventos · '+S.venc.length+' vencimientos · '+S.fechas.length+' fechas</div><div class="muted" style="font-size:13px;margin-top:4px">'+(lb?'Último respaldo: '+fmtDate(iso(new Date(lb))):'Todavía no hiciste ningún respaldo')+'</div></div>'+
    '<button class="btn btn-ghost" data-act="export">Guardar copia</button>'+
    '<label class="option" style="justify-content:center"><input type="file" id="importFile" accept="application/json,.json,*/*"><b>Recuperar desde una copia</b></label>'+
    '<p class="note" style="margin:0;text-align:center">Ordenado '+esc(APP_VERSION)+'</p>');
+}
+
+/* ---------- entender frases (voz o texto) ---------- */
+const VZ_NUM={un:1,uno:1,una:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10,once:11,doce:12,trece:13,catorce:14,quince:15,dieciseis:16,diecisiete:17,dieciocho:18,diecinueve:19,veinte:20,veintiuno:21,veintidos:22,veintitres:23,veinticuatro:24,veinticinco:25,veintiseis:26,veintisiete:27,veintiocho:28,veintinueve:29,treinta:30,treintayuno:31,primero:1};
+const VZ_MES={enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,setiembre:9,octubre:10,noviembre:11,diciembre:12};
+const VZ_DIA={domingo:0,lunes:1,martes:2,miercoles:3,jueves:4,viernes:5,sabado:6};
+function vzN(w){if(w==null)return null;w=String(w);if(/^\d+$/.test(w))return Number(w);return VZ_NUM[w]!=null?VZ_NUM[w]:null}
+function parseFrase(raw,hoyD){
+  const hoy=hoyD?new Date(hoyD):new Date();hoy.setHours(0,0,0,0);
+  const isoD=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const plus=n=>{const d=new Date(hoy);d.setDate(d.getDate()+n);return isoD(d)};
+  // trabajamos sobre texto sin tildes, misma longitud que el original para poder recortar el título
+  const orig=String(raw||'').replace(/\s+/g,' ').trim();
+  let t=orig.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+  if(t.length!==orig.length){t=orig.toLowerCase();} // por si la normalización cambió largos
+  t=t.replace(/[áà]/g,'a').replace(/[éè]/g,'e').replace(/[íì]/g,'i').replace(/[óò]/g,'o').replace(/[úùü]/g,'u');
+  t=t.replace(/[¿¡?!]/g,' ');
+  const cut=[];const take=(re)=>{const m=re.exec(t);if(m){const a=m.index,b=a+m[0].length;cut.push([a,b]);t=t.slice(0,a)+' '.repeat(b-a)+t.slice(b)}return m};
+  const r={tipo:null,titulo:'',fecha:'',hora:'',monto:null,repite:'NO',dia:null,mes:null,consulta:null,texto:orig};
+  // consultas
+  if(/^\s*(que|cuales|cuantas?|cuanto|tengo|hay|decime|contame|leeme|mostrame)\b/.test(t)&&/\b(tengo|hay|pendiente|pendientes|vence|vencen|vencimiento|falta|debo|agenda|resumen|hoy|manana|semana|tareas?)\b/.test(t)&&!/^\s*(anota|anotame|agenda|agendame|recorda|recordame|acordame|agrega|agregame)\b/.test(t)){
+    r.tipo='consulta';
+    r.consulta=/\b(vence|vencen|vencimientos?|pagar|pagos|debo)\b/.test(t)?'vencimientos':/\bpasado manana\b/.test(t)?'pasado':/\bmanana\b/.test(t)?'manana':/\bsemana\b/.test(t)?'semana':/\b(pendientes?|tareas?|falta|hacer)\b/.test(t)?'pendientes':'hoy';
+    return r;
+  }
+  // repetición
+  let m;
+  if(take(/\b(todos los dias|todos los días|cada dia|diariamente)\b/))r.repite='DAILY';
+  else if((m=take(/\b(todos los|cada) (lunes|martes|miercoles|jueves|viernes|sabados?|domingos?)\b/))){r.repite='WEEKLY';const dw=VZ_DIA[m[2].replace(/(sabado|domingo)s$/,'$1')];if(dw!=null){const d=new Date(hoy);let k=(dw-d.getDay()+7)%7;d.setDate(d.getDate()+k);r.fecha=isoD(d)}}
+  else if(take(/\b(todas las semanas|cada semana|semanalmente)\b/))r.repite='WEEKLY';
+  else if(take(/\b(todos los meses|cada mes|mensual(mente)?)\b/))r.repite='MONTHLY';
+  else if(take(/\b(todos los anos|cada ano|anual(mente)?)\b/))r.repite='YEARLY';
+  // monto
+  if((m=take(/\$\s?(\d[\d.]*(?:,\d+)?)(\s?mil)?(\s?pesos)?/))||(m=take(/\b(\d[\d.]*(?:,\d+)?)\s?(mil|lucas)(\s?pesos)?\b/))||(m=take(/\b(\d[\d.]*(?:,\d+)?)\s?pesos\b/))){
+    let n=Number(m[1].replace(/\./g,'').replace(',','.'));if(/mil|lucas/.test(m[2]||''))n*=1000;r.monto=n||null;
+  }
+  // hora
+  if((m=take(/\b(?:a las|a la|tipo|como a las|para las)\s(\d{1,2}|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce)(?:(?::|\.|\sy\s|\s)(\d{2}|media|cuarto|quince|treinta|cuarenta y cinco))?(?:\s(?:hs|horas|h))?(?:\s(de la manana|de la tarde|de la noche|de la madrugada|am|pm|a\.?\s?m\.?|p\.?\s?m\.?))?/))){
+    let h=vzN(m[1]);let mi=0;const x=m[2];
+    if(x==='media'||x==='treinta')mi=30;else if(x==='cuarto'||x==='quince')mi=15;else if(x==='cuarenta y cinco')mi=45;else if(x&&/^\d{2}$/.test(x))mi=Number(x);
+    const q=m[3]||'';
+    if(/tarde|noche|pm|p\.?\s?m/.test(q)&&h<12)h+=12;else if(!q&&h>=1&&h<=7)h+=12;
+    if(/madrugada|manana|am|a\.?\s?m/.test(q)&&h===12)h=0;
+    if(h!=null&&h<24)r.hora=String(h).padStart(2,'0')+':'+String(mi).padStart(2,'0');
+  }else if((m=take(/\b(\d{1,2})[:.](\d{2})\s?(hs|h|horas)?\b/))){const h=Number(m[1]),mi=Number(m[2]);if(h<24&&mi<60)r.hora=String(h).padStart(2,'0')+':'+m[2]}
+  else if(take(/\b(al mediodia|a mediodia)\b/))r.hora='12:00';
+  // fecha
+  const DIAW='(lunes|martes|miercoles|jueves|viernes|sabado|domingo)';
+  if(!r.fecha){
+    if(take(/\bpasado manana\b/))r.fecha=plus(2);
+    else if(take(/\bmanana\b(?! (a la|de la) manana)/)&&!/\bde la manana\b/.test(t.slice(0,0)))r.fecha=plus(1);
+    else if(take(/\bhoy\b/))r.fecha=plus(0);
+    else if((m=take(new RegExp('\\b(?:el |este |para el )?(proximo |otro )?'+DIAW+'( que viene| proximo)?\\b')))){const dw=VZ_DIA[m[2]];let k=(dw-hoy.getDay()+7)%7;if(k===0)k=7;if((m[1]||m[3])&&k<7&&/proximo|que viene/.test((m[1]||'')+(m[3]||''))&&k<=2)k+=0;r.fecha=plus(k)}
+    else if((m=take(/\b(?:el |para el )?(?:dia )?(\d{1,2}|primero|[a-z]+) de (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)(?: de(?:l)? (\d{4}))?\b/))){
+      const d=vzN(m[1]),mo=VZ_MES[m[2]];if(d){r.dia=d;r.mes=mo;let y=m[3]?Number(m[3]):hoy.getFullYear();let dt=new Date(y,mo-1,d);if(!m[3]&&dt<hoy)dt=new Date(y+1,mo-1,d);r.fecha=isoD(dt)}}
+    else if((m=take(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/))){const d=Number(m[1]),mo=Number(m[2]);if(mo>=1&&mo<=12&&d>=1&&d<=31){r.dia=d;r.mes=mo;let y=m[3]?Number(m[3].length===2?'20'+m[3]:m[3]):hoy.getFullYear();let dt=new Date(y,mo-1,d);if(!m[3]&&dt<hoy)dt=new Date(y+1,mo-1,d);r.fecha=isoD(dt)}}
+    else if((m=take(/\b(?:el |para el |todos los )(?:dia )?(\d{1,2}|primero)\b(?! (de la|hs|horas|pesos|mil))/))){const d=vzN(m[1]);if(d>=1&&d<=31){let dt=new Date(hoy.getFullYear(),hoy.getMonth(),d);if(dt<hoy)dt=new Date(hoy.getFullYear(),hoy.getMonth()+1,d);r.fecha=isoD(dt);r.dia=d}}
+    else if((m=take(/\ben (\d+|un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|quince|veinte|treinta) (dias?|semanas?|mes(?:es)?)\b/))){const n=vzN(m[1])||1;if(/dia/.test(m[2]))r.fecha=plus(n);else if(/semana/.test(m[2]))r.fecha=plus(7*n);else{const d=new Date(hoy);d.setMonth(d.getMonth()+n);r.fecha=isoD(d)}}
+    else if(take(/\b(la semana que viene|la proxima semana|la semana proxima)\b/))r.fecha=plus(7);
+    else if(take(/\b(a fin de mes|fin de mes|el fin de mes)\b/)){const d=new Date(hoy.getFullYear(),hoy.getMonth()+1,0);r.fecha=isoD(d)}
+  }
+  if(take(/\b(de la manana|a la manana|a la tarde|a la noche)\b/)&&!r.hora){}
+  // tipo
+  const esFecha=/\b(cumple|cumpleanos|aniversario)\b/.test(t);
+  const esVenc=/\b(vence|vencimiento|pagar|pago|cuota|factura|impuesto|expensas|alquiler|monotributo|abl|patente|seguro)\b/.test(t)||(r.monto&&/\b(pagar|pago|vence)\b/.test(t));
+  const esEvento=!!r.hora||/\b(turno|reunion|cita|medico|dentista|partido|cena|almuerzo|cumbre|clase|entrenamiento|futbol|evento|recital|vuelo)\b/.test(t);
+  r.tipo=esFecha?'fecha':esVenc?'venc':esEvento?'evento':'tarea';
+  if(r.tipo==='fecha'&&r.fecha&&r.dia==null){const d=parseISO(r.fecha);r.dia=d.getDate();r.mes=d.getMonth()+1}
+  if(r.tipo==='venc'&&r.repite==='NO'&&/\b(todos los|cada)\b/.test(t))r.repite='MONTHLY';
+  // título: sacar lo reconocido y palabras de comando
+  let keep=orig.split('');cut.forEach(([a,b])=>{for(let i=a;i<b;i++)keep[i]=' '});
+  let ti=keep.join('').replace(/[¿¡?!]/g,' ').replace(/\s+/g,' ').trim();
+  const lead=/^(?:por favor\s+)?(?:anot[aá]me|anot[aá]|agend[aá]me|agend[aá]|record[aá]me|record[aá]|acord[aá]me|pon[eé]me|agreg[aá]me|agreg[aá]|cre[aá]|nueva|nuevo|ten[eé] en cuenta)(?![\wáéíóúñ])[\s,:]*(?:que\s+)?/i;
+  for(let i=0;i<3;i++)ti=ti.replace(lead,'');
+  ti=ti.replace(/^(?:tengo que|hay que|debo|que)\s+/i,'').replace(/^(?:una?\s+)?(?:tarea|recordatorio|evento)\s*(?:de|para|:)?\s*/i,'');
+  ti=ti.replace(/\b(vence el|vence|vencimiento de(l)?|que vence)\b/ig,' ').replace(/^(?:pagar|pago de(l)?|el pago de(l)?)\s+/i,r.tipo==='venc'?'':'$&');
+  ti=ti.replace(/\s+(el|la|a las|a la|para el|para|de|del|y|que|en|por)\s*$/i,'').replace(/^\s*(el|la|los|las|para|de|y)\s+/i,'');
+  ti=ti.replace(/\s{2,}/g,' ').replace(/^[\s,.;:-]+|[\s,.;:-]+$/g,'').replace(/\s+(el|la|a las|para|de|y)\s*$/i,'').trim();
+  if(!ti)ti=r.tipo==='venc'?'Pago':r.tipo==='evento'?'Evento':'Tarea';
+  r.titulo=ti.charAt(0).toUpperCase()+ti.slice(1);
+  return r;
+}
+
+/* ---------- voz: escuchar, confirmar, responder ---------- */
+const VZ_TIPOS=[['tarea','Tarea','var(--lime)'],['evento','Evento','var(--blue)'],['venc','Vencimiento','var(--orange)'],['fecha','Fecha importante','var(--violet)']];
+const micSvg='<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
+let vzPend=null;
+function SRn(){return NP?CAP.registerPlugin('SpeechRecognition'):null}
+function TTSn(){return NP?CAP.registerPlugin('TextToSpeech'):null}
+async function escuchar(){
+  if(NP){const sr=SRn();
+    try{const av=await sr.available();if(!av||!av.available){toast('Tu celu no tiene reconocimiento de voz. Instalá la app "Google".');return null}}catch(e){}
+    try{let p=await sr.checkPermissions();if(p.speechRecognition!=='granted'){p=await sr.requestPermissions();if(p.speechRecognition!=='granted'){toast('Dale permiso de micrófono a Ordenado');return null}}}catch(e){}
+    try{const r=await sr.start({language:'es-AR',maxResults:3,prompt:'Decime qué anoto o qué querés saber',partialResults:false,popup:true});return (r&&r.matches&&r.matches[0])||null}
+    catch(e){return null}}
+  const W=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!W){toast('Este navegador no reconoce voz. Escribilo en el cuadro.');return null}
+  return new Promise(res=>{const rec=new W();rec.lang='es-AR';rec.interimResults=false;rec.maxAlternatives=1;let got=null;
+    rec.onresult=e=>{got=e.results[0][0].transcript};rec.onerror=()=>{};rec.onend=()=>res(got);
+    try{rec.start();const s=document.getElementById('vzEstado');if(s)s.textContent='Te escucho…'}catch(e){res(null)}});
+}
+function hablar(txt){
+  if(!txt)return;
+  if(NP){const t=TTSn();t.speak({text:txt,lang:'es-AR',rate:1.0,pitch:1.0,volume:1.0,category:'ambient'}).catch(()=>t.speak({text:txt,lang:'es-ES',rate:1.0}).catch(()=>{}));return}
+  try{if(window.speechSynthesis){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(txt);u.lang='es-AR';speechSynthesis.speak(u)}}catch(e){}
+}
+function callarse(){try{if(NP)TTSn().stop().catch(()=>{});else if(window.speechSynthesis)speechSynthesis.cancel()}catch(e){}}
+function sheetVoz(){
+  openSheet('Hablale a Ordenado','<button class="btn btn-lime" data-act="vz-escuchar" style="min-height:96px;border-radius:28px;font-size:18px;flex-direction:column;gap:6px"><span style="width:34px;height:34px;display:block">'+micSvg.replace('<svg','<svg width="34" height="34" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round"')+'</span>Tocá y hablá</button>'+
+   '<p class="note" id="vzEstado" style="margin:0;text-align:center">Por ejemplo:</p>'+
+   '<div class="list" style="gap:6px">'+['"Mañana a las 10 dentista"','"Llamar al plomero el jueves"','"La cochera vence el 10 todos los meses, 45 mil pesos"','"Cumpleaños de mamá el 3 de mayo"','"¿Qué tengo hoy?" · "¿Qué tengo pendiente?"'].map(x=>'<span class="muted" style="font-size:13px">'+esc(x)+'</span>').join('')+'</div>'+
+   '<form data-form="voztxt" style="flex-direction:row;align-items:flex-end;gap:8px"><label class="f" style="flex:1;min-width:0">O escribilo así<input id="vz-in" name="texto" placeholder="Ej: viernes 18 hs cena con Laura" autocomplete="off"></label><button class="btn btn-ghost" type="submit" aria-label="Listo" style="min-width:50px;padding:0">'+ICON.next+'</button></form>');
+}
+async function vozEscuchar(){
+  const s=document.getElementById('vzEstado');if(s)s.textContent='Te escucho…';
+  const txt=await escuchar();
+  if(!txt){const s2=document.getElementById('vzEstado');if(s2)s2.textContent='No te escuché. Tocá de nuevo y hablá.';return}
+  procesarFrase(txt);
+}
+function procesarFrase(txt){
+  const r=parseFrase(txt);
+  if(r.tipo==='consulta')return responder(r.consulta);
+  vzPend=r;sheetConfirmar();
+}
+function resumenParsed(r){
+  const p=[];
+  if(r.tipo==='fecha'){if(r.dia)p.push(r.dia+' de '+MESES[r.mes-1]+', todos los años');else p.push('Falta la fecha')}
+  else{if(r.fecha)p.push(longDate(r.fecha));else if(r.tipo==='evento')p.push('Hoy');else if(r.tipo==='venc')p.push('Falta la fecha');else p.push('Sin fecha');
+    if(r.hora)p.push('a las '+r.hora);if(r.monto)p.push(money(r.monto));if(r.repite&&r.repite!=='NO')p.push(repLabel(r.repite).toLowerCase())}
+  return p.join(' · ');
+}
+function faltaDato(r){return (r.tipo==='venc'&&!r.fecha)||(r.tipo==='fecha'&&!r.dia)}
+function sheetConfirmar(){
+  const r=vzPend;if(!r)return;const tp=VZ_TIPOS.find(x=>x[0]===r.tipo);
+  openSheet('¿Lo anoto así?','<p class="note" style="margin:0">Escuché: “'+esc(r.texto)+'”</p>'+
+   '<div class="seg" role="group" aria-label="Tipo">'+VZ_TIPOS.map(x=>'<button data-act="vz-tipo" data-t="'+x[0]+'" aria-pressed="'+(x[0]===r.tipo)+'">'+x[1]+'</button>').join('')+'</div>'+
+   '<div class="card" style="display:flex;flex-direction:column;gap:6px;border:1px solid var(--line)"><span class="eyebrow" style="font-size:11px;color:'+tp[2]+'">'+tp[1]+'</span><span style="font-size:20px;font-weight:800">'+esc(r.titulo)+'</span><span class="muted" style="font-size:14px;font-weight:600">'+esc(resumenParsed(r))+'</span></div>'+
+   (faltaDato(r)?'<p class="note" style="margin:0;color:var(--orange)">Me falta la fecha. Tocá "Completar" y elegila.</p>':'')+
+   (faltaDato(r)?'<button class="btn btn-lime" data-act="vz-editar">Completar</button>':'<button class="btn btn-lime" data-act="vz-guardar">Guardar</button><button class="btn btn-line" data-act="vz-editar">Cambiar algo</button>')+
+   '<button class="btn btn-ghost" data-act="vz-escuchar">'+micSvg.replace('<svg','<svg width="20" height="20" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round"')+'Volver a decirlo</button>');
+}
+async function vozGuardar(){
+  const r=vzPend;if(!r||faltaDato(r))return;let k,data,msg;
+  if(r.tipo==='tarea'){k='tareas';data={titulo:r.titulo,fecha:r.fecha||'',hora:r.fecha?(r.hora||''):'',prioridad:'normal',nota:'',hecha:false};msg='Tarea anotada'}
+  if(r.tipo==='evento'){k='eventos';data={titulo:r.titulo,fecha:r.fecha||todayISO(),hora:r.hora||'',repite:r.repite||'NO',aviso:avCfg().eventoMin,nota:''};msg='Evento agendado'}
+  if(r.tipo==='venc'){k='venc';data={titulo:r.titulo,fecha:r.fecha,monto:r.monto||null,repite:r.repite||'NO',pagado:false};msg='Vencimiento anotado'}
+  if(r.tipo==='fecha'){k='fechas';data={titulo:r.titulo,dia:r.dia,mes:r.mes,anio:null};msg='Fecha guardada'}
+  const ok=await safe(()=>store.add(k,data),msg);if(ok){vzPend=null;closeSheet();hablar(msg+': '+r.titulo)}
+}
+function vozEditar(){
+  const r=vzPend;if(!r)return;
+  if(r.tipo==='tarea')return sheetTarea(null,{titulo:r.titulo,fecha:r.fecha||'',hora:r.hora||''});
+  if(r.tipo==='evento')return sheetEvento(null,{titulo:r.titulo,fecha:r.fecha||todayISO(),hora:r.hora||'',repite:r.repite||'NO'});
+  if(r.tipo==='venc')return sheetVenc(null,{titulo:r.titulo,fecha:r.fecha||'',monto:r.monto,repite:r.repite&&r.repite!=='NO'?r.repite:'MONTHLY'});
+  if(r.tipo==='fecha')return sheetFecha(null,{titulo:r.titulo,dia:r.dia,mes:r.mes});
+}
+function itemsDia(s,conAtrasadas){
+  const it=[];const t=todayISO();
+  S.eventos.filter(e=>occursOn(e,s)).sort((a,b)=>(a.hora||'')<(b.hora||'')?-1:1).forEach(e=>it.push({c:'var(--blue)',t:e.titulo,m:e.hora?'a las '+e.hora:'todo el día',voz:(e.hora?'a las '+e.hora+', ':'')+e.titulo,act:'evento',id:e.id}));
+  S.venc.filter(v=>!v.pagado&&(v.fecha===s||(conAtrasadas&&v.fecha<s))).forEach(v=>it.push({c:'var(--orange)',t:v.titulo,m:(v.fecha<t?'vencido':'vence')+(v.monto?' · '+money(v.monto):''),voz:(v.fecha<t?'está vencido ':'vence ')+v.titulo+(v.monto?', '+Math.round(v.monto)+' pesos':''),act:'venc',id:v.id}));
+  S.fechas.filter(f=>fechaOn(f,s)).forEach(f=>it.push({c:'var(--violet)',t:f.titulo,m:'fecha importante',voz:f.titulo,act:'fecha',id:f.id}));
+  S.tareas.filter(x=>!x.hecha&&(x.fecha===s||(conAtrasadas&&x.fecha&&x.fecha<s))).sort(tareaOrd).forEach(x=>it.push({c:'var(--lime)',t:x.titulo,m:x.fecha<s?'tarea atrasada':'tarea',voz:'tarea: '+x.titulo,act:'tarea',id:x.id}));
+  return it;
+}
+function responder(q){
+  const t=todayISO();let titulo,items,intro,extra='';
+  if(q==='hoy'||q==='manana'||q==='pasado'){const s=q==='hoy'?t:addDaysISO(t,q==='manana'?1:2);items=itemsDia(s,q==='hoy');const cuando=q==='hoy'?'Hoy':q==='manana'?'Mañana':'Pasado mañana';titulo=cuando;
+    intro=items.length?cuando+' tenés '+items.length+(items.length===1?' cosa':' cosas'):cuando+' no tenés nada anotado';
+    if(q==='hoy'){const sf=S.tareas.filter(x=>!x.hecha&&!x.fecha).length;if(sf)extra='Además tenés '+sf+(sf===1?' tarea sin fecha':' tareas sin fecha')+'.'}}
+  else if(q==='semana'){items=[];for(let i=0;i<7;i++){const s=addDaysISO(t,i);itemsDia(s,i===0).forEach(x=>{x.m=(i===0?'hoy':i===1?'mañana':longDate(s).split(' ')[0].toLowerCase())+' · '+x.m;x.voz=(i===0?'hoy, ':i===1?'mañana, ':longDate(s).split(' ')[0].toLowerCase()+', ')+x.voz;items.push(x)})}
+    titulo='Esta semana';intro=items.length?'En los próximos 7 días tenés '+items.length+(items.length===1?' cosa':' cosas'):'No tenés nada en los próximos 7 días'}
+  else if(q==='vencimientos'){items=pendVenc().filter(v=>daysUntil(v.fecha)<=7).map(v=>{const n=daysUntil(v.fecha);return {c:n<0?'var(--red)':'var(--orange)',t:v.titulo,m:cuando(n)+(v.monto?' · '+money(v.monto):''),voz:v.titulo+', '+cuando(n).toLowerCase()+(v.monto?', '+Math.round(v.monto)+' pesos':''),act:'venc',id:v.id}});
+    const tot=pendVenc().filter(v=>daysUntil(v.fecha)<=7).reduce((a,v)=>a+(Number(v.monto)||0),0);
+    titulo='Vencimientos';intro=items.length?'Tenés '+items.length+(items.length===1?' pago':' pagos')+' en los próximos 7 días'+(tot?', en total '+money(tot):''):'No tenés pagos en los próximos 7 días'}
+  else{const pend=S.tareas.filter(x=>!x.hecha).sort((a,b)=>((a.fecha||'9999')<(b.fecha||'9999')?-1:1)||tareaOrd(a,b));
+    items=pend.map(x=>{const n=x.fecha?daysUntil(x.fecha):null;return {c:n!=null&&n<0?'var(--red)':'var(--lime)',t:x.titulo,m:n==null?'sin fecha':n<0?'atrasada':n===0?'hoy':n===1?'mañana':longDate(x.fecha),voz:x.titulo+(n!=null&&n<0?', atrasada':n===0?', para hoy':''),act:'tarea',id:x.id}});
+    const venc=pendVenc().filter(v=>daysUntil(v.fecha)<0);venc.forEach(v=>items.unshift({c:'var(--red)',t:v.titulo,m:'pago vencido'+(v.monto?' · '+money(v.monto):''),voz:'pago vencido: '+v.titulo,act:'venc',id:v.id}));
+    titulo='Pendientes';intro=items.length?'Tenés '+items.length+(items.length===1?' pendiente':' pendientes'):'No tenés nada pendiente. ¡Bien ahí!'}
+  const voz=intro+(items.length?': '+items.slice(0,6).map(x=>x.voz).join('. ')+(items.length>6?'. Y '+(items.length-6)+' más':''):'')+'.'+(extra?' '+extra:'');
+  openSheet(titulo,'<div class="between"><p style="margin:0;font-weight:700">'+esc(intro)+'</p><button class="iconbtn" data-act="vz-repetir" aria-label="Escuchar de nuevo">'+ICON.bell.replace(/<path[^>]*\/>/g,'').replace('</svg>','<path d="M4 9.5v5h3.5L12 19V5L7.5 9.5z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>')+'</button></div>'+
+   (items.length?'<div class="list" style="gap:8px">'+items.map(x=>'<button class="item" style="border:0;text-align:left;width:100%" data-act="'+x.act+'" data-id="'+x.id+'"><span style="width:4px;align-self:stretch;border-radius:4px;background:'+x.c+'" aria-hidden="true"></span><span class="col" style="flex:1"><span style="font-weight:700" class="ellip">'+esc(x.t)+'</span><span class="muted" style="font-size:12px">'+esc(x.m)+'</span></span></button>').join('')+'</div>':'')+
+   (extra?'<p class="note" style="margin:0">'+esc(extra)+'</p>':'')+
+   '<button class="btn btn-ghost" data-act="vz-escuchar">'+micSvg.replace('<svg','<svg width="20" height="20" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round"')+'Preguntar otra cosa</button>');
+  S.ultimaRespuesta=voz;hablar(voz);
 }
 
 /* ---------- buscador ---------- */
@@ -1071,6 +1261,12 @@ document.addEventListener('click',async e=>{
   if(act==='scan')return sheetScan();
   if(act==='quick')return sheetQuick();
   if(act==='buscar')return sheetBuscar();
+  if(act==='voz')return sheetVoz();
+  if(act==='vz-escuchar'){callarse();if(!document.getElementById('vzEstado'))sheetVoz();return vozEscuchar()}
+  if(act==='vz-tipo'){if(vzPend){vzPend.tipo=a.dataset.t;if(vzPend.tipo==='fecha'&&vzPend.fecha&&!vzPend.dia){const d=parseISO(vzPend.fecha);vzPend.dia=d.getDate();vzPend.mes=d.getMonth()+1}sheetConfirmar()}return}
+  if(act==='vz-guardar')return vozGuardar();
+  if(act==='vz-editar')return vozEditar();
+  if(act==='vz-repetir')return hablar(S.ultimaRespuesta);
   if(act==='lock-on'||act==='lock-off'){return toggleLock(act==='lock-on').then(()=>{if(sheetOpen)sheetAjustes()})}
   if(act==='tarea')return sheetTarea(id);
   if(act==='tfilter'){S.tFilter=a.dataset.f;return render()}
@@ -1122,7 +1318,7 @@ document.addEventListener('submit',async e=>{
     ls.set('empleada',{nombre:fd.nombre.trim(),cuil,categoria:fd.categoria,modalidad:fd.modalidad,forma:fd.forma,horasSem:Number(String(fd.horasSem).replace(',','.'))||0,sueldo:parseMoney(fd.sueldo),ingreso:fd.ingreso,zona:!!fd.zona,jubilada:!!fd.jubilada});
     ls.set('empleador',{nombre:fd.erNombre.trim(),cuit:fd.erCuit.replace(/\D/g,''),dom:fd.erDom.trim()});
     S.liqHoras=null;S.liqRemu=null;closeSheet();render();return toast('Datos guardados')}
-  if(kind==='ajustes'){ls.set('avisos',{on:!!fd.on,hora:fd.hora||'09:00',vencDias:Number(fd.vencDias),fechaDias:Number(fd.fechaDias),eventoMin:Number(fd.eventoMin),resumen:!!fd.resumen,resumenHora:fd.resumenHora||'08:00',sueldo:!!fd.sueldo});closeSheet();render();scheduleNow(true);return toast('Ajustes guardados')}
+  if(kind==='ajustes'){ls.set('avisos',{on:!!fd.on,hora:fd.hora||'09:00',vencDias:Number(fd.vencDias),fechaDias:Number(fd.fechaDias),eventoMin:Number(fd.eventoMin),resumen:!!fd.resumen,resumenHora:fd.resumenHora||'08:00',sueldo:!!fd.sueldo,pend:!!fd.pend,pendHora:fd.pendHora||'19:00'});closeSheet();render();scheduleNow(true);return toast('Ajustes guardados')}
   if(kind==='escala'){saveEscalaFromSheet();closeSheet();render();return toast('Valores actualizados')}
   if(kind==='liq'){const emp=ls.get('empleada',null);if(!emp)return;fd.sac=!!fd.sac;fd.aporte=!!fd.aporte;
     if(emp.forma==='mes'&&!(parseMoney(fd.remu)>0))return toast('Poné la remuneración del mes');
@@ -1137,7 +1333,8 @@ document.addEventListener('submit',async e=>{
     if(!fd.pv)data.pv='';if(!fd.nro)data.nro='';ls.set('rubro',fd.rubro);if(!id){data.cargado=false;S.tkMonth=fd.fecha.slice(0,7)}msg='Ticket guardado'}
   if(kind==='evento'){k='eventos';data={titulo:fd.titulo.trim(),fecha:fd.fecha,hora:fd.hora||'',repite:fd.repite||'NO',aviso:Number(fd.aviso),nota:fd.nota.trim()};msg='Recordatorio guardado'}
   if(kind==='venc'){k='venc';data={titulo:fd.titulo.trim(),fecha:fd.fecha,monto:parseMoney(fd.monto),repite:fd.repite};if(!id)data.pagado=false;msg='Vencimiento guardado'}
-  if(kind==='qtarea'){const ti=(fd.titulo||'').trim();if(!ti)return;const ok=await safe(()=>store.add('tareas',{titulo:ti,fecha:'',hora:'',prioridad:'normal',nota:'',hecha:false}),'Tarea anotada');if(ok){if(sheetOpen)closeSheet();const el=document.getElementById('qt-in');if(el){el.value='';el.focus()}}return}
+  if(kind==='voztxt'){const tx=(fd.texto||'').trim();if(tx)procesarFrase(tx);return}
+  if(kind==='qtarea'){const ti=(fd.titulo||'').trim();if(!ti)return;{const pr=parseFrase(ti);if(pr.tipo==='consulta')return responder(pr.consulta);if(pr.tipo!=='tarea'||pr.fecha){vzPend=pr;return sheetConfirmar()}}const ok=await safe(()=>store.add('tareas',{titulo:ti,fecha:'',hora:'',prioridad:'normal',nota:'',hecha:false}),'Tarea anotada');if(ok){if(sheetOpen)closeSheet();const el=document.getElementById('qt-in');if(el){el.value='';el.focus()}}return}
   if(kind==='tarea'){k='tareas';data={titulo:fd.titulo.trim(),fecha:fd.fecha||'',hora:fd.fecha?(fd.hora||''):'',prioridad:fd.prioridad||'normal',nota:(fd.nota||'').trim()};if(!id)data.hecha=false;msg='Tarea guardada'}
   if(kind==='fecha'){k='fechas';const d=parseISO(fd.fecha);data={titulo:fd.titulo.trim(),dia:d.getDate(),mes:d.getMonth()+1,anio:fd.conAnio?d.getFullYear():null};msg='Fecha guardada'}
   const ok=await safe(()=>id?store.update(k,id,data):store.add(k,data),msg);
